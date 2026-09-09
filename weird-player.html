@@ -1072,8 +1072,8 @@
             }
 
             onMessage(data) {
-              if (data.type === "init") {
-                this.channels = data.channels;
+                if (data.type === "init") {
+                  this.channels = data.channels;
                 this.length = (this.channels[0] && this.channels[0].length) || 0;
                 this.port.postMessage({ type: "ready", length: this.length });
               } else if (data.type === "play") {
@@ -1088,7 +1088,7 @@
                 this.playing = false;
                 if (typeof data.position === "number") this.position = data.position;
               } else if (data.type === "seek") {
-                this.position = data.position;
+                  this.position = data.position;
                 this.virtualTime = typeof data.virtualTime === "number"
                   ? data.virtualTime
                   : data.position / this.sampleRateLocal;
@@ -1646,7 +1646,7 @@
         const tryAddModule = async (url, revoke) => {
           try {
             await context.audioWorklet.addModule(url);
-          } finally {
+        } finally {
             if (revoke) revoke();
           }
         };
@@ -1699,8 +1699,8 @@
 
       function postInitChannels(node, channels) {
         try {
-          node.port.postMessage(
-            { type: "init", channels },
+        node.port.postMessage(
+          { type: "init", channels },
             channels.map((ch) => ch.buffer)
           );
         } catch (err) {
@@ -2793,10 +2793,10 @@
                 Math.abs(shown - positionRef.current) > 0.04 ? positionRef.current : shown
               );
             } else if (data.type === "ended") {
-              playingRef.current = false;
-              setPlaying(false);
-              positionRef.current = duration;
-              setPosition(duration);
+            playingRef.current = false;
+            setPlaying(false);
+            positionRef.current = duration;
+            setPosition(duration);
             }
             // #region agent log
             else if (data.type === "dbg-reverse-fx") {
@@ -3017,7 +3017,7 @@
 
         return (
           <div className="shell">
-            <main className="player" onClick={handlePlayerClick}>
+          <main className="player" onClick={handlePlayerClick}>
               <div className="playhead" aria-hidden="true" />
               <div className="player-top">
                 <button
@@ -3041,21 +3041,21 @@
                 </button>
               </div>
 
-              <section
-                ref={deckRef}
-                className={`deck ${scrubbing ? "scrubbing" : ""}`}
-                onPointerDown={beginScrub}
-                onPointerMove={moveScrub}
-                onPointerUp={endScrub}
-                onPointerCancel={endScrub}
-                aria-label="Drag horizontally to scrub the audio"
-              >
-                <canvas ref={canvasRef} />
-              </section>
+            <section
+              ref={deckRef}
+              className={`deck ${scrubbing ? "scrubbing" : ""}`}
+              onPointerDown={beginScrub}
+              onPointerMove={moveScrub}
+              onPointerUp={endScrub}
+              onPointerCancel={endScrub}
+              aria-label="Drag horizontally to scrub the audio"
+            >
+              <canvas ref={canvasRef} />
+            </section>
 
-              <footer className="controls">
+            <footer className="controls">
                 <div className="transport">
-                  <button
+              <button
                     type="button"
                     className="restart-button"
                     onClick={jumpToStart}
@@ -3063,19 +3063,19 @@
                     title="Back to start"
                   >
                     <span className="restart-icon">⏮</span>
-                  </button>
-                  <button
-                    className="play-button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      togglePlay();
-                    }}
-                    aria-label={playing ? "Pause" : "Play"}
-                  >
-                    {playing
-                      ? <span className="pause-icon">Ⅱ</span>
-                      : <span className="play-icon">▶</span>}
-                  </button>
+              </button>
+              <button
+                className="play-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  togglePlay();
+                }}
+                aria-label={playing ? "Pause" : "Play"}
+              >
+                {playing
+                  ? <span className="pause-icon">Ⅱ</span>
+                  : <span className="play-icon">▶</span>}
+              </button>
                 </div>
                 <div className="time">
                   <TimeField
@@ -3091,22 +3091,22 @@
                   />
                   <span className="time-total">{formatTime(duration)}</span>
                 </div>
-                <div className="right-controls">
-                  <label className="volume-control" onClick={(event) => event.stopPropagation()}>
-                    <span>Volume</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      onChange={changeVolume}
-                      aria-label="Volume"
-                    />
-                  </label>
-                </div>
-              </footer>
-            </main>
+              <div className="right-controls">
+                <label className="volume-control" onClick={(event) => event.stopPropagation()}>
+                  <span>Volume</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
+                    onChange={changeVolume}
+                    aria-label="Volume"
+                  />
+                </label>
+              </div>
+            </footer>
+          </main>
 
             <EffectsPanel
               fx={fx}
