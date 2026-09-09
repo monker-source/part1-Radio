@@ -1,0 +1,3592 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>I just hate music — experimental</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600&display=swap");
+
+      :root {
+        color-scheme: dark;
+        font-family: "Roboto Mono", monospace;
+        background: #0d0d0c;
+        color: #f1efe7;
+        font-synthesis: none;
+        --muted: rgba(241, 239, 231, .4);
+        --line: rgba(241, 239, 231, .14);
+        --accent: #e8c27a;
+        --danger: #ff846f;
+      }
+
+      * { box-sizing: border-box; }
+      html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+      body {
+        min-height: 100vh;
+        overflow: hidden;
+        background: #0d0d0c;
+      }
+      button, input, select { font: inherit; color: inherit; }
+
+      .drop-screen {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        cursor: pointer;
+      }
+      .drop-content { width: 100%; text-align: center; }
+      .drop-content h1 {
+        margin: 0;
+        font-size: clamp(34px, 5.3vw, 76px);
+        line-height: 1.02;
+        font-weight: 300;
+        letter-spacing: -.055em;
+        white-space: nowrap;
+      }
+      .drop-content p {
+        margin: 22px 0 0;
+        color: var(--muted);
+        font: 300 12px/1.6 "Roboto Mono", monospace;
+        letter-spacing: .04em;
+      }
+      .error {
+        color: var(--danger) !important;
+        max-width: min(520px, 92vw);
+        white-space: normal;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .shell {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        grid-template-columns: 1fr minmax(280px, 360px);
+        min-height: 560px;
+        overflow: hidden;
+      }
+
+      .player {
+        --page-margin: 16px;
+        --reverb-wet: 0;
+        --reverb-spread: 0.5;
+        display: flex;
+        flex-direction: column;
+        padding: var(--page-margin);
+        gap: var(--page-margin);
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        background: #0d0d0c;
+        isolation: isolate;
+      }
+      .player::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.55s ease;
+        background:
+          repeating-linear-gradient(
+            93deg,
+            transparent 0,
+            transparent calc(14px + 10px * var(--reverb-spread)),
+            rgba(232, 194, 122, 0.028) calc(14px + 10px * var(--reverb-spread)),
+            rgba(232, 194, 122, calc(0.09 * var(--reverb-wet))) calc(20px + 12px * var(--reverb-spread)),
+            transparent calc(30px + 14px * var(--reverb-spread))
+          ),
+          radial-gradient(
+            ellipse calc(70% + 30% * var(--reverb-spread)) calc(55% + 25% * var(--reverb-spread)) at 50% 48%,
+            rgba(232, 194, 122, calc(0.2 * var(--reverb-wet))) 0%,
+            rgba(232, 194, 122, calc(0.06 * var(--reverb-wet))) 42%,
+            transparent 72%
+          );
+        background-size: 140% 120%, 100% 100%;
+        background-position: 0% 50%, 50% 48%;
+        mix-blend-mode: screen;
+      }
+      .player.reverb-live::before {
+        opacity: 1;
+        animation: reverb-haze-drift 9s ease-in-out infinite alternate;
+      }
+      @keyframes reverb-haze-drift {
+        from { background-position: 0% 48%, 48% 46%; }
+        to { background-position: 10% 52%, 52% 50%; }
+      }
+
+      .player-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        position: relative;
+        z-index: 4;
+      }
+
+      .track-switch {
+        max-width: min(46vw, 320px);
+        padding: 0;
+        border: 0;
+        color: rgba(241, 239, 231, .72);
+        background: transparent;
+        cursor: pointer;
+        display: grid;
+        font: 400 11px/1 "Roboto Mono", monospace;
+        letter-spacing: .06em;
+        text-align: left;
+      }
+      .track-switch span {
+        grid-area: 1 / 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: opacity .16s;
+      }
+      .track-switch .change-label { opacity: 0; text-transform: uppercase; }
+      .track-switch:hover .track-label { opacity: 0; }
+      .track-switch:hover .change-label { opacity: 1; }
+
+      .download-button {
+        border: 1px solid rgba(241, 239, 231, .22);
+        background: transparent;
+        color: rgba(241, 239, 231, .72);
+        padding: 8px 10px;
+        cursor: pointer;
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .download-button:hover:not(:disabled) {
+        border-color: rgba(241, 239, 231, .45);
+        color: #f1efe7;
+      }
+      .download-button:disabled {
+        opacity: 0.45;
+        cursor: wait;
+      }
+
+      .deck {
+        flex: 1;
+        min-height: 220px;
+        margin: 0 calc(var(--page-margin) * -1);
+        width: calc(100% + var(--page-margin) * 2);
+        position: relative;
+        z-index: 1;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .deck.scrubbing { cursor: grabbing; }
+      .deck canvas { width: 100%; height: 100%; display: block; }
+
+      .playhead {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 1px;
+        transform: translateX(-50%);
+        z-index: 2;
+        pointer-events: none;
+        background: rgba(241, 239, 231, .64);
+        box-shadow: 0 0 18px rgba(255, 255, 255, .1);
+      }
+
+      .time {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 0;
+        height: 0;
+        z-index: 3;
+        color: rgba(241, 239, 231, .4);
+        font: 400 11px/1 "Roboto Mono", monospace;
+        letter-spacing: .08em;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .time-input {
+        position: absolute;
+        right: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 7em;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(241, 239, 231, .7);
+        font: 400 11px/1 "Roboto Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: .08em;
+        text-align: right;
+        padding: 0;
+        pointer-events: auto;
+      }
+      .time-input:hover { border-color: var(--line); }
+      .time-input:focus {
+        outline: none;
+        border-color: rgba(232, 194, 122, .45);
+        color: #f1efe7;
+      }
+      .time-total {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(241, 239, 231, .4);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .controls {
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+      }
+
+      .transport {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 3;
+      }
+
+      .restart-button {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(241, 239, 231, .28);
+        border-radius: 50%;
+        background: transparent;
+        color: rgba(241, 239, 231, .75);
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+      }
+      .restart-button:hover {
+        border-color: rgba(241, 239, 231, .5);
+        color: #f1efe7;
+      }
+      .restart-icon {
+        font-size: 13px;
+        line-height: 1;
+        transform: translateY(-0.5px);
+      }
+
+      .play-button {
+        position: relative;
+        z-index: 3;
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(241, 239, 231, .28);
+        border-radius: 50%;
+        background: #f1efe7;
+        color: #0d0d0c;
+        cursor: pointer;
+        transition: transform .2s, background .2s;
+      }
+      .play-button:hover { transform: scale(1.04); }
+      .play-icon { font-size: 17px; transform: translateX(1px); }
+      .pause-icon { font-size: 13px; letter-spacing: 2px; transform: translateX(1px); }
+
+      .right-controls {
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+        z-index: 3;
+      }
+      .volume-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 52px;
+        color: rgba(241, 239, 231, .4);
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+      .volume-control input,
+      .param input[type="range"],
+      .fx-footer input[type="range"] {
+        height: 3px;
+        border-radius: 2px;
+        appearance: none;
+        background: rgba(241, 239, 231, .2);
+        cursor: pointer;
+      }
+      .volume-control input { width: 92px; }
+      .volume-control input::-webkit-slider-thumb,
+      .param input[type="range"]::-webkit-slider-thumb,
+      .fx-footer input[type="range"]::-webkit-slider-thumb {
+        width: 11px;
+        height: 11px;
+        border: 0;
+        border-radius: 50%;
+        appearance: none;
+        background: #d2d2ce;
+      }
+      .volume-control input::-moz-range-thumb,
+      .param input[type="range"]::-moz-range-thumb,
+      .fx-footer input[type="range"]::-moz-range-thumb {
+        width: 11px;
+        height: 11px;
+        border: 0;
+        border-radius: 50%;
+        background: #d2d2ce;
+      }
+
+      .fx-panel {
+        border-left: 1px solid var(--line);
+        background: #0d0d0c;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+        z-index: 5;
+      }
+      .fx-header {
+        padding: 18px 18px 12px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 12px;
+        background: #0d0d0c;
+        flex-shrink: 0;
+        z-index: 3;
+      }
+      .fx-header h2 {
+        margin: 0;
+        font: 400 11px/1 "Roboto Mono", monospace;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .macro-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .macro-actions button {
+        flex: 1;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: rgba(241, 239, 231, .75);
+        padding: 8px 10px;
+        cursor: pointer;
+        font: 400 10px/1 "Roboto Mono", monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .macro-actions button:hover { border-color: rgba(241, 239, 231, .35); color: #f1efe7; }
+      .macro-actions .danger:hover { border-color: var(--danger); color: var(--danger); }
+
+      .fx-list {
+        overflow: auto;
+        padding: 0;
+        flex: 1;
+        min-height: 0;
+        background: #0d0d0c;
+      }
+      .fx-footer {
+        border-top: 1px solid var(--line);
+        padding: 14px 18px 16px;
+        background: #10100e;
+        display: grid;
+        gap: 10px;
+        flex-shrink: 0;
+        z-index: 3;
+      }
+      .fx-footer .macro-row {
+        display: grid;
+        gap: 8px;
+      }
+      .fx-footer .macro-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font: 400 10px/1 "Roboto Mono", monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: rgba(241, 239, 231, .7);
+      }
+      .macro-head .fx-help-target {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+      .fx-footer .macro-row input[type="range"] { width: 100%; }
+
+      .fx-module {
+        border-bottom: 1px solid var(--line);
+        padding: 0;
+        background: #0d0d0c;
+      }
+      .fx-module.on { background: #12110e; }
+      .fx-module.collapsed .params { display: none; }
+      .fx-group {
+        background: #0d0d0c;
+      }
+      .fx-group + .fx-group {
+        border-top: 1px solid var(--line);
+      }
+      .fx-group-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px 12px;
+        background: #10100e;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .fx-group-head h3 {
+        margin: 0;
+        font: 400 10px/1 "Roboto Mono", monospace;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .fx-group-hide {
+        border: 1px solid var(--line);
+        background: transparent;
+        color: rgba(241, 239, 231, .55);
+        padding: 5px 8px;
+        cursor: pointer;
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+      .fx-group-hide:hover {
+        border-color: rgba(255, 132, 111, .45);
+        color: var(--danger);
+      }
+      .fx-accordion-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+      }
+      .fx-accordion-btn .fx-chevron {
+        flex-shrink: 0;
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-top: 5px solid rgba(241, 239, 231, .45);
+        transition: transform .15s;
+      }
+      .fx-module.collapsed .fx-chevron {
+        transform: rotate(-90deg);
+      }
+      .fx-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0;
+        padding: 12px 18px;
+      }
+      .fx-module:not(.collapsed) .fx-top {
+        padding-bottom: 8px;
+      }
+      .fx-module .params {
+        padding: 0 18px 14px;
+      }
+      .fx-top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .fx-hidden-bar {
+        padding: 10px 18px 12px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 8px;
+        background: #0d0d0c;
+        flex-shrink: 0;
+      }
+      .fx-hidden-bar > span {
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .fx-hidden-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .fx-hidden-chips button {
+        border: 1px solid var(--line);
+        background: transparent;
+        color: rgba(241, 239, 231, .65);
+        padding: 5px 8px;
+        cursor: pointer;
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .fx-hidden-chips button:hover {
+        border-color: rgba(232, 194, 122, .45);
+        color: var(--accent);
+      }
+      .fx-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .fx-name {
+        font: 500 12px/1.2 "Roboto Mono", monospace;
+        letter-spacing: .02em;
+        cursor: help;
+      }
+      .fx-help-target {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        cursor: help;
+      }
+      .fx-help-target.open .fx-name,
+      .fx-help-target:hover .fx-name {
+        color: var(--accent);
+      }
+      .fx-info-tip {
+        position: fixed;
+        z-index: 10000;
+        max-width: min(320px, calc(100vw - 24px));
+        max-height: min(240px, calc(100vh - 24px));
+        overflow: auto;
+        padding: 10px 11px;
+        background: #1a1a17;
+        border: 1px solid rgba(241, 239, 231, .22);
+        color: rgba(241, 239, 231, .88);
+        font: 400 10px/1.45 "Roboto Mono", monospace;
+        letter-spacing: .02em;
+        text-align: left;
+        text-transform: none;
+        white-space: pre-wrap;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, .45);
+        pointer-events: auto;
+      }
+      .fx-toggle {
+        width: 36px;
+        height: 20px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #1a1a18;
+        position: relative;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+      }
+      .fx-toggle::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: rgba(241, 239, 231, .35);
+        transition: transform .18s, background .18s;
+      }
+      .fx-toggle.on {
+        border-color: rgba(232, 194, 122, .55);
+        background: rgba(232, 194, 122, .18);
+      }
+      .fx-toggle.on::after {
+        transform: translateX(16px);
+        background: var(--accent);
+      }
+      .params { display: grid; gap: 8px; }
+      .param {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 10px;
+        align-items: center;
+      }
+      .param > span {
+        font: 400 10px/1 "Roboto Mono", monospace;
+        color: var(--muted);
+        letter-spacing: .04em;
+      }
+      .param .val-input,
+      .val-input {
+        width: 4.6em;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(241, 239, 231, .7);
+        font: 400 10px/1 "Roboto Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+        padding: 2px 4px;
+        border-radius: 0;
+      }
+      .param .val-input:hover,
+      .val-input:hover {
+        border-color: var(--line);
+      }
+      .param .val-input:focus,
+      .val-input:focus {
+        outline: none;
+        border-color: rgba(232, 194, 122, .45);
+        color: #f1efe7;
+        background: #161614;
+      }
+      .param input[type="range"] { width: 100%; margin: 0; }
+      .slider-track {
+        grid-column: 1 / -1;
+        position: relative;
+        display: flex;
+        align-items: center;
+        height: 16px;
+        margin-bottom: 8px;
+      }
+      .slider-track input[type="range"] {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        margin: 0;
+      }
+      .rest-mark {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        width: 3px;
+        height: 14px;
+        margin-top: -7px;
+        margin-left: -1.5px;
+        padding: 0;
+        border: 0;
+        border-radius: 1px;
+        background: rgba(241, 239, 231, .35);
+        cursor: pointer;
+        transform: none;
+        left: 0;
+      }
+      .rest-mark:hover {
+        background: rgba(241, 239, 231, .65);
+      }
+      .rest-mark:focus-visible {
+        outline: 1px solid rgba(241, 239, 231, .55);
+        outline-offset: 2px;
+      }
+      .rest-mark::after {
+        content: attr(data-label);
+        position: absolute;
+        top: calc(100% + 1px);
+        left: 50%;
+        transform: translateX(-50%);
+        font: 400 8px/1 "Roboto Mono", monospace;
+        color: rgba(241, 239, 231, .32);
+        letter-spacing: 0;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .param select {
+        grid-column: 1 / -1;
+        width: 100%;
+        background: #161614;
+        border: 1px solid var(--line);
+        padding: 6px 8px;
+        border-radius: 0;
+      }
+      .fx-module:not(.on) .params { opacity: .38; pointer-events: none; }
+
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: 1fr;
+          grid-template-rows: minmax(42vh, 1fr) minmax(40vh, 48vh);
+          gap: 0;
+        }
+        .fx-panel {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+        .volume-control span { display: none; }
+        .volume-control input { width: 72px; }
+        .track-switch { max-width: 42vw; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useCallback, useEffect, useMemo, useRef, useState } = React;
+      const PIXELS_PER_SECOND = 115;
+      const STEM_WIDTH = 4;
+      const STEM_GAP = 4;
+      const STEM_STEP_SECONDS = (STEM_WIDTH + STEM_GAP) / PIXELS_PER_SECOND;
+
+      const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+
+      function formatTime(seconds) {
+        if (!Number.isFinite(seconds)) return "00:00.0";
+        const value = Math.max(0, seconds);
+        const mins = Math.floor(value / 60);
+        const secs = Math.floor(value % 60);
+        const tenths = Math.floor((value % 1) * 10);
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${tenths}`;
+      }
+
+      function parseTimeInput(raw) {
+        if (raw == null) return NaN;
+        const text = String(raw).trim().replace(",", ".");
+        if (!text) return NaN;
+        if (/^\d*\.?\d+$/.test(text)) return Number(text);
+        const match = text.match(/^(\d+):(\d{1,2})(?:\.(\d+))?$/);
+        if (!match) return NaN;
+        const mins = Number(match[1]);
+        const secs = Number(match[2]);
+        const frac = match[3] ? Number(`0.${match[3]}`) : 0;
+        if (!Number.isFinite(mins) || !Number.isFinite(secs) || secs >= 60) return NaN;
+        return mins * 60 + secs + frac;
+      }
+
+      function formatParam(value, digits = 2) {
+        if (!Number.isFinite(value)) return "—";
+        return Number(value).toFixed(digits);
+      }
+
+      const DEFAULT_FX = {
+        wowFlutter: {
+          enabled: false,
+          depth: 0,
+          rateHz: 0.8,
+          flutterDepth: 0,
+          flutterRateHz: 8,
+        },
+        pitchTimeDecouple: {
+          enabled: false,
+          speedPercent: 100,
+          pitchSemitones: 0,
+        },
+        loopFragment: {
+          enabled: false,
+          startSec: 0,
+          durationSec: 4,
+          mode: "fixed",
+          glitchClicks: false,
+        },
+        glitchDegrade: {
+          enabled: false,
+          intensity: 0,
+          triggerMode: "continuous",
+        },
+        reverse: {
+          enabled: false,
+          scope: "segment",
+          segmentStart: 0,
+          segmentEnd: 0.05,
+        },
+        layeredCollage: {
+          enabled: false,
+          layerCount: 2,
+          layer1Delay: 0.12,
+          layer1Speed: 1,
+          layer1Gain: 0,
+          layer2Delay: 0.28,
+          layer2Speed: 1,
+          layer2Gain: 0,
+          layer3Delay: 0.55,
+          layer3Speed: 1,
+          layer3Gain: 0,
+        },
+        bandIsolation: {
+          enabled: false,
+          keep: "midsHighs",
+          highpassHz: 40,
+          lowpassHz: 16000,
+          transientSoft: 0,
+        },
+        spectralFreeze: {
+          enabled: false,
+          sliceMs: 120,
+          holdSec: 4,
+          crossfadeSec: 2.5,
+          wet: 0,
+        },
+        modulatedLowpass: {
+          enabled: false,
+          cutoffHz: 8000,
+          lfoPeriodSec: 36,
+          lfoDepth: 0,
+          resonance: 0,
+        },
+        longReverb: {
+          enabled: false,
+          decaySec: 18,
+          wet: 0,
+          damp: 0.35,
+        },
+        stochasticBehavior: {
+          enabled: false,
+          bpm: 96,
+          probability: 0,
+        },
+      };
+
+      const MODULE_GROUPS = {
+        destructive: {
+          id: "destructive",
+          title: "Destructive",
+          keys: [
+            "wowFlutter",
+            "loopFragment",
+            "glitchDegrade",
+            "reverse",
+            "layeredCollage",
+            "bandIsolation",
+            "stochasticBehavior",
+          ],
+        },
+        melodic: {
+          id: "melodic",
+          title: "Melodic",
+          keys: [
+            "pitchTimeDecouple",
+            "spectralFreeze",
+            "modulatedLowpass",
+            "longReverb",
+          ],
+        },
+      };
+
+      const CUT_UP_MODES = new Set(["shuffle", "reverse-order", "rule-based"]);
+      const isCutUpMode = (mode) => CUT_UP_MODES.has(mode);
+
+      function scaleWithChaos(base, chaos, kind = "intensity") {
+        if (chaos <= 0) return base;
+        if (kind === "rate") return base * (1 + chaos * 1.8);
+        if (kind === "depth") return clamp(base * (1 + chaos * 3.5), 0, 0.25);
+        if (kind === "semitone") return base * (1 + chaos * 2);
+        if (kind === "speed") {
+          const delta = base - 1;
+          return 1 + delta * (1 + chaos * 2);
+        }
+        return clamp(base * (1 + chaos * 2.4), 0, 1);
+      }
+
+      async function makeWaveformStems(buffer, onProgress) {
+        const channels = Array.from(
+          { length: buffer.numberOfChannels },
+          (_, index) => buffer.getChannelData(index)
+        );
+        const stemCount = Math.ceil(buffer.duration / STEM_STEP_SECONDS);
+        const amplitudes = new Float32Array(stemCount);
+        const samplesPerStem = Math.max(1, Math.floor(STEM_STEP_SECONDS * buffer.sampleRate));
+        const stride = Math.max(1, Math.floor(samplesPerStem / 96));
+
+        for (let stem = 0; stem < stemCount; stem += 1) {
+          const from = stem * samplesPerStem;
+          const to = Math.min(buffer.length, from + samplesPerStem);
+          let peak = 0;
+          let sum = 0;
+          let count = 0;
+          for (let sample = from; sample < to; sample += stride) {
+            let mono = 0;
+            for (const channel of channels) mono += Math.abs(channel[sample] || 0);
+            mono /= channels.length;
+            peak = Math.max(peak, mono);
+            sum += mono * mono;
+            count += 1;
+          }
+          const rms = Math.sqrt(sum / Math.max(1, count));
+          amplitudes[stem] = peak * 0.65 + rms * 0.35;
+          if (stem % 240 === 0) {
+            onProgress(15 + Math.round((stem / stemCount) * 70));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+
+        let max = 0.0001;
+        for (let i = 0; i < stemCount; i += 1) max = Math.max(max, amplitudes[i]);
+        const normalized = new Float32Array(stemCount);
+        for (let i = 0; i < stemCount; i += 1) {
+          const left = amplitudes[Math.max(0, i - 1)];
+          const center = amplitudes[i];
+          const right = amplitudes[Math.min(stemCount - 1, i + 1)];
+          const smoothed = (left + center * 2 + right) / 4;
+          normalized[i] = clamp(Math.pow(smoothed / max, 0.72), 0.03, 1);
+        }
+        return normalized;
+      }
+
+      function buildCutMap(duration, segmentLengthSec, mode, seed = Date.now()) {
+        const len = Math.max(0.05, segmentLengthSec);
+        const count = Math.max(1, Math.ceil(duration / len));
+        const segments = Array.from({ length: count }, (_, i) => ({
+          start: i * len,
+          end: Math.min(duration, (i + 1) * len),
+        }));
+        if (mode === "reverse-order") return segments.slice().reverse();
+        if (mode === "rule-based") {
+          const out = segments.slice();
+          for (let i = 0; i + 1 < out.length; i += 2) {
+            const tmp = out[i];
+            out[i] = out[i + 1];
+            out[i + 1] = tmp;
+          }
+          return out;
+        }
+        // shuffle with deterministic-ish seed
+        let s = seed % 2147483647;
+        const rand = () => {
+          s = (s * 48271) % 2147483647;
+          return (s - 1) / 2147483646;
+        };
+        const out = segments.slice();
+        for (let i = out.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(rand() * (i + 1));
+          const tmp = out[i];
+          out[i] = out[j];
+          out[j] = tmp;
+        }
+        return out;
+      }
+
+      function createWeirdWorkletSource() {
+        return `
+          const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+          function fftRadix2(re, im, inverse) {
+            const n = re.length;
+            let j = 0;
+            for (let i = 0; i < n; i += 1) {
+              if (i < j) {
+                let tr = re[i]; re[i] = re[j]; re[j] = tr;
+                let ti = im[i]; im[i] = im[j]; im[j] = ti;
+              }
+              let m = n >> 1;
+              while (m >= 1 && j >= m) { j -= m; m >>= 1; }
+              j += m;
+            }
+            for (let len = 2; len <= n; len <<= 1) {
+              const ang = (inverse ? 2 : -2) * Math.PI / len;
+              const wlenRe = Math.cos(ang);
+              const wlenIm = Math.sin(ang);
+              for (let i0 = 0; i0 < n; i0 += len) {
+                let wr = 1;
+                let wi = 0;
+                const half = len >> 1;
+                for (let k = 0; k < half; k += 1) {
+                  const i = i0 + k;
+                  const t = i + half;
+                  const tr = wr * re[t] - wi * im[t];
+                  const ti = wr * im[t] + wi * re[t];
+                  re[t] = re[i] - tr;
+                  im[t] = im[i] - ti;
+                  re[i] += tr;
+                  im[i] += ti;
+                  const nwr = wr * wlenRe - wi * wlenIm;
+                  wi = wr * wlenIm + wi * wlenRe;
+                  wr = nwr;
+                }
+              }
+            }
+            if (inverse) {
+              const inv = 1 / n;
+              for (let i = 0; i < n; i += 1) { re[i] *= inv; im[i] *= inv; }
+            }
+          }
+
+          class WeirdProcessor extends AudioWorkletProcessor {
+            constructor() {
+              super();
+              this.channels = [];
+              this.length = 0;
+              this.sampleRateLocal = sampleRate;
+              this.playing = false;
+              this.position = 0;
+              this.virtualTime = 0;
+              this.baseSpeed = 1;
+              this.fx = {
+                wowFlutter: { enabled: false, depth: 0.02, rateHz: 0.8, flutterDepth: 0.008, flutterRateHz: 8 },
+                pitchTime: { enabled: false, speedFactor: 1, pitchSemitones: 0 },
+                loop: { enabled: false, startSec: 0, durationSec: 0.35, driftMode: "fixed", driftPos: 0 },
+                cutUp: { enabled: false, map: [], xfadeSec: 0.012, glitchClicks: false, cursor: 0 },
+                glitch: { enabled: false, intensity: 0.35, triggerMode: "continuous", freezeLeft: 0, freezeBuf: null, holdSample: null, holdLeft: 0, gapLeft: 0 },
+                reverse: { enabled: false, scope: "full-track", segmentStart: 0, segmentEnd: 2 },
+                collage: { enabled: false, layers: [] },
+                bandIsolation: { enabled: false, keep: "midsHighs", highpassHz: 220, lowpassHz: 5500, transientSoft: 0.55 },
+                spectralFreeze: { enabled: false, sliceMs: 120, holdSec: 4, crossfadeSec: 2.5, wet: 1 },
+                modulatedLowpass: { enabled: false, cutoffHz: 1200, lfoPeriodSec: 36, lfoDepth: 0.75, resonance: 0.15 },
+                longReverb: { enabled: false, decaySec: 18, wet: 0.55, damp: 0.35 },
+              };
+              this.grainPhase = 0;
+              this.grainSize = Math.floor(sampleRate * 0.06);
+              this.lfoPhase1 = 0;
+              this.lfoPhase2 = 0;
+              this.lpfLfoPhase = 0;
+              this.lastTransient = 0;
+              this.outputMeter = 0;
+              this._posCounter = 0;
+              this._dbgRevCounter = 0;
+              this._dbgRevFlips = 0;
+              this._dbgRevLastSign = 1;
+              this._dbgRevInside = false;
+              this.hpL = 0; this.hpR = 0; this.lpL = 0; this.lpR = 0;
+              this.envFollow = 0;
+              this.lpfY1L = 0; this.lpfY1R = 0; this.lpfY2L = 0; this.lpfY2R = 0;
+              this.initSpectral();
+              this.initReverb();
+              this.port.onmessage = (e) => this.onMessage(e.data);
+            }
+
+            initSpectral() {
+              this.specFft = 2048;
+              this.specHop = 512;
+              this.specWin = new Float32Array(this.specFft);
+              for (let i = 0; i < this.specFft; i += 1) {
+                this.specWin[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / this.specFft);
+              }
+              this.specInL = new Float32Array(this.specFft);
+              this.specInR = new Float32Array(this.specFft);
+              this.specFill = 0;
+              this.specMagA = new Float32Array(this.specFft / 2);
+              this.specMagB = new Float32Array(this.specFft / 2);
+              this.specHasA = false;
+              this.specHasB = false;
+              this.specXfade = 1;
+              this.specHoldLeft = 0;
+              this.specPhaseL = new Float32Array(this.specFft / 2);
+              this.specPhaseR = new Float32Array(this.specFft / 2);
+              this.specOutL = new Float32Array(this.specFft * 2);
+              this.specOutR = new Float32Array(this.specFft * 2);
+              this.specOutRead = 0;
+              this.specOutWrite = 0;
+              this.specRe = new Float32Array(this.specFft);
+              this.specIm = new Float32Array(this.specFft);
+              for (let i = 0; i < this.specFft / 2; i += 1) {
+                this.specPhaseL[i] = Math.random() * Math.PI * 2;
+                this.specPhaseR[i] = Math.random() * Math.PI * 2;
+              }
+            }
+
+            initReverb() {
+              const sr = this.sampleRateLocal;
+              const scale = sr / 44100;
+              const combLens = [1557, 1617, 1491, 1422, 1277, 1356, 1188, 1116].map((n) => Math.round(n * scale));
+              const apLens = [225, 556, 441, 341].map((n) => Math.round(n * scale));
+              this.reverbCombs = combLens.map((len) => ({
+                bufL: new Float32Array(len),
+                bufR: new Float32Array(len),
+                idx: 0,
+                filterL: 0,
+                filterR: 0,
+                len: len,
+              }));
+              this.reverbAps = apLens.map((len) => ({
+                bufL: new Float32Array(len),
+                bufR: new Float32Array(len),
+                idx: 0,
+                len: len,
+              }));
+            }
+
+            onMessage(data) {
+              if (data.type === "init") {
+                this.channels = data.channels;
+                this.length = (this.channels[0] && this.channels[0].length) || 0;
+                this.port.postMessage({ type: "ready", length: this.length });
+              } else if (data.type === "play") {
+                this.playing = true;
+                if (typeof data.position === "number") this.position = data.position;
+                this.port.postMessage({
+                  type: "playing",
+                  position: this.position,
+                  length: this.length,
+                });
+              } else if (data.type === "pause") {
+                this.playing = false;
+                if (typeof data.position === "number") this.position = data.position;
+              } else if (data.type === "seek") {
+                this.position = data.position;
+                this.virtualTime = typeof data.virtualTime === "number"
+                  ? data.virtualTime
+                  : data.position / this.sampleRateLocal;
+                this.fx.cutUp.cursor = this.virtualTime;
+              } else if (data.type === "fx") {
+                this.applyFx(data.fx);
+              }
+            }
+
+            applyFx(fx) {
+              if (!fx) return;
+              if (fx.wowFlutter) Object.assign(this.fx.wowFlutter, fx.wowFlutter);
+              if (fx.pitchTime) Object.assign(this.fx.pitchTime, fx.pitchTime);
+              if (fx.loop) {
+                const prevMode = this.fx.loop.driftMode;
+                const nextDuration = typeof fx.loop.durationSec === "number"
+                  ? fx.loop.durationSec
+                  : this.fx.loop.durationSec;
+                const nextStart = typeof fx.loop.startSec === "number"
+                  ? fx.loop.startSec
+                  : this.fx.loop.startSec;
+                Object.assign(this.fx.loop, {
+                  enabled: fx.loop.enabled,
+                  startSec: nextStart,
+                  durationSec: nextDuration,
+                  driftMode: fx.loop.driftMode || this.fx.loop.driftMode,
+                });
+                // Worklet owns driftPos for sliding/random — do not reset from UI each frame.
+                if (fx.loop.driftMode && fx.loop.driftMode !== prevMode) {
+                  const duration = this.length / this.sampleRateLocal;
+                  if (fx.loop.driftMode === "random") {
+                    const maxStart = Math.max(0, duration - nextDuration);
+                    this.fx.loop.driftPos = Math.random() * maxStart;
+                    this.position = this.fx.loop.driftPos * this.sampleRateLocal;
+                  } else if (fx.loop.driftMode === "sliding") {
+                    this.fx.loop.driftPos = nextStart || 0;
+                  } else {
+                    this.fx.loop.driftPos = nextStart || 0;
+                  }
+                }
+              }
+              if (fx.cutUp) {
+                Object.assign(this.fx.cutUp, fx.cutUp);
+                if (fx.cutUp.map) this.fx.cutUp.map = fx.cutUp.map;
+              }
+              if (fx.glitch) Object.assign(this.fx.glitch, fx.glitch);
+              if (fx.reverse) Object.assign(this.fx.reverse, fx.reverse);
+              // #region agent log
+              if (fx.reverse) {
+                this.port.postMessage({
+                  type: "dbg-reverse-fx",
+                  reverse: {
+                    enabled: this.fx.reverse.enabled,
+                    scope: this.fx.reverse.scope,
+                    segmentStart: this.fx.reverse.segmentStart,
+                    segmentEnd: this.fx.reverse.segmentEnd,
+                  },
+                  positionSec: this.position / this.sampleRateLocal,
+                });
+              }
+              // #endregion
+              if (fx.collage) Object.assign(this.fx.collage, fx.collage);
+              if (fx.bandIsolation) Object.assign(this.fx.bandIsolation, fx.bandIsolation);
+              if (fx.spectralFreeze) Object.assign(this.fx.spectralFreeze, fx.spectralFreeze);
+              if (fx.modulatedLowpass) Object.assign(this.fx.modulatedLowpass, fx.modulatedLowpass);
+              if (fx.longReverb) Object.assign(this.fx.longReverb, fx.longReverb);
+            }
+
+            readSample(channelData, pos) {
+              const max = this.length - 2;
+              if (max < 1 || !channelData) return 0;
+              const p = Math.max(0, Math.min(max, pos));
+              const i = Math.floor(p);
+              const f = p - i;
+              const a = channelData[i] || 0;
+              const b = channelData[i + 1] || 0;
+              return a + (b - a) * f;
+            }
+
+            mapCutUp(virtualSec) {
+              const map = this.fx.cutUp.map;
+              if (!map || !map.length) return virtualSec * this.sampleRateLocal;
+              let t = virtualSec;
+              const total = map.reduce((s, seg) => s + (seg.end - seg.start), 0);
+              if (total <= 0) return 0;
+              t = ((t % total) + total) % total;
+              let acc = 0;
+              for (let mi = 0; mi < map.length; mi += 1) {
+                const seg = map[mi];
+                const dur = seg.end - seg.start;
+                if (t < acc + dur) {
+                  const local = t - acc;
+                  return (seg.start + local) * this.sampleRateLocal;
+                }
+                acc += dur;
+              }
+              const last = map[map.length - 1];
+              return last.start * this.sampleRateLocal;
+            }
+
+            cutUpSample(ch, virtualSec) {
+              const map = this.fx.cutUp.map;
+              if (!map || !map.length) return this.readSample(ch, virtualSec * this.sampleRateLocal);
+              const xfade = this.fx.cutUp.glitchClicks ? 0 : Math.max(0, this.fx.cutUp.xfadeSec);
+              let t = virtualSec;
+              const total = map.reduce((s, seg) => s + (seg.end - seg.start), 0);
+              if (total <= 0) return 0;
+              t = ((t % total) + total) % total;
+              let acc = 0;
+              for (let i = 0; i < map.length; i += 1) {
+                const seg = map[i];
+                const dur = seg.end - seg.start;
+                if (t < acc + dur) {
+                  const local = t - acc;
+                  let sample = this.readSample(ch, (seg.start + local) * this.sampleRateLocal);
+                  if (xfade > 0 && local < xfade && i > 0) {
+                    const prev = map[i - 1];
+                    const prevLocal = (prev.end - prev.start) - (xfade - local);
+                    const prevSample = this.readSample(ch, (prev.start + Math.max(0, prevLocal)) * this.sampleRateLocal);
+                    const w = local / xfade;
+                    sample = prevSample * (1 - w) + sample * w;
+                  }
+                  return sample;
+                }
+                acc += dur;
+              }
+              return 0;
+            }
+
+            loopBounds() {
+              const loop = this.fx.loop;
+              const duration = this.length / this.sampleRateLocal;
+              let start = loop.startSec;
+              if (loop.driftMode === "sliding" || loop.driftMode === "random") {
+                start = clamp(loop.driftPos, 0, Math.max(0, duration - loop.durationSec));
+              }
+              start = clamp(start, 0, Math.max(0, duration - 0.01));
+              const dur = clamp(loop.durationSec, 0.03, Math.max(0.03, duration - start));
+              return { start: start, end: start + dur, duration: duration };
+            }
+
+            currentRate() {
+              let rate = this.baseSpeed;
+              const wow = this.fx.wowFlutter;
+              if (wow.enabled) {
+                this.lfoPhase1 += (2 * Math.PI * wow.rateHz) / this.sampleRateLocal;
+                this.lfoPhase2 += (2 * Math.PI * wow.flutterRateHz) / this.sampleRateLocal;
+                rate *= 1 + wow.depth * Math.sin(this.lfoPhase1) + wow.flutterDepth * Math.sin(this.lfoPhase2);
+              }
+              if (this.fx.pitchTime.enabled) rate *= this.fx.pitchTime.speedFactor;
+              if (this.fx.reverse.enabled && this.fx.reverse.scope === "full-track") rate *= -1;
+              return rate;
+            }
+
+            applyBandIsolation(pL, pR) {
+              const b = this.fx.bandIsolation;
+              if (!b.enabled) return [pL, pR];
+              const sr = this.sampleRateLocal;
+              let hpHz = b.highpassHz;
+              let lpHz = b.lowpassHz;
+              if (b.keep === "highsOnly") { hpHz = Math.max(hpHz, 1800); lpHz = 18000; }
+              else if (b.keep === "midsOnly") { hpHz = Math.max(180, hpHz); lpHz = Math.min(lpHz, 4200); }
+              else if (b.keep === "midsHighs") { lpHz = 16000; }
+              const hpA = Math.exp(-2 * Math.PI * clamp(hpHz, 20, sr * 0.45) / sr);
+              const lpA = Math.exp(-2 * Math.PI * clamp(lpHz, 200, sr * 0.45) / sr);
+              this.hpL = hpA * (this.hpL + pL - (this._prevInL || 0));
+              this.hpR = hpA * (this.hpR + pR - (this._prevInR || 0));
+              this._prevInL = pL;
+              this._prevInR = pR;
+              let yL = this.hpL;
+              let yR = this.hpR;
+              this.lpL = (1 - lpA) * yL + lpA * this.lpL;
+              this.lpR = (1 - lpA) * yR + lpA * this.lpR;
+              yL = this.lpL;
+              yR = this.lpR;
+              const mono = (Math.abs(yL) + Math.abs(yR)) * 0.5;
+              const attack = mono > this.envFollow ? 0.25 : 0.02;
+              this.envFollow += (mono - this.envFollow) * attack;
+              const transient = Math.max(0, mono - this.envFollow * 0.85);
+              const soft = clamp(b.transientSoft, 0, 1);
+              const duck = 1 - soft * clamp(transient * 8, 0, 1);
+              return [yL * duck, yR * duck];
+            }
+
+            captureSpectrum(srcL, srcR) {
+              const n = this.specFft;
+              const half = n / 2;
+              const re = this.specRe;
+              const im = this.specIm;
+              for (let i = 0; i < n; i += 1) {
+                re[i] = ((srcL[i] + srcR[i]) * 0.5) * this.specWin[i];
+                im[i] = 0;
+              }
+              fftRadix2(re, im, false);
+              const mag = new Float32Array(half);
+              for (let i = 0; i < half; i += 1) {
+                mag[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
+              }
+              return mag;
+            }
+
+            synthesizeSpectralHop() {
+              const n = this.specFft;
+              const half = n / 2;
+              const w = this.specXfade;
+              const re = this.specRe;
+              const im = this.specIm;
+              re[0] = 0; im[0] = 0;
+              for (let i = 1; i < half; i += 1) {
+                const mag = (this.specMagA[i] || 0) * (1 - w) + (this.specMagB[i] || 0) * w;
+                this.specPhaseL[i] += 0.15 + i * 0.002;
+                this.specPhaseR[i] += 0.17 + i * 0.0021;
+                const m = mag * 0.55;
+                re[i] = m * Math.cos(this.specPhaseL[i]);
+                im[i] = m * Math.sin(this.specPhaseL[i]);
+                re[n - i] = re[i];
+                im[n - i] = -im[i];
+              }
+              if (n > 1) { re[half] = 0; im[half] = 0; }
+              fftRadix2(re, im, true);
+              const hop = this.specHop;
+              for (let i = 0; i < n; i += 1) {
+                const idx = (this.specOutWrite + i) % this.specOutL.length;
+                const s = re[i] * this.specWin[i];
+                this.specOutL[idx] += s;
+                this.specOutR[idx] += s;
+              }
+              this.specOutWrite = (this.specOutWrite + hop) % this.specOutL.length;
+            }
+
+            applySpectralFreeze(pL, pR) {
+              const s = this.fx.spectralFreeze;
+              if (!s.enabled) return [pL, pR];
+              const n = this.specFft;
+              const hop = this.specHop;
+              if (!this.specRingL) {
+                this.specRingL = new Float32Array(n);
+                this.specRingR = new Float32Array(n);
+                this.specRingPos = 0;
+                this.specSinceHop = 0;
+              }
+              this.specRingL[this.specRingPos] = pL;
+              this.specRingR[this.specRingPos] = pR;
+              this.specRingPos = (this.specRingPos + 1) % n;
+              this.specSinceHop += 1;
+
+              if (this.specSinceHop >= hop) {
+                this.specSinceHop = 0;
+                for (let i = 0; i < n; i += 1) {
+                  const idx = (this.specRingPos + i) % n;
+                  this.specInL[i] = this.specRingL[idx];
+                  this.specInR[i] = this.specRingR[idx];
+                }
+
+                if (!this.specHasA || this.specHoldLeft <= 0) {
+                  const mag = this.captureSpectrum(this.specInL, this.specInR);
+                  if (!this.specHasA) {
+                    this.specMagA.set(mag);
+                    this.specHasA = true;
+                    this.specMagB.set(mag);
+                    this.specHasB = true;
+                    this.specXfade = 1;
+                  } else {
+                    this.specMagA.set(this.specMagB);
+                    this.specMagB.set(mag);
+                    this.specHasB = true;
+                    this.specXfade = 0;
+                  }
+                  const sliceSec = clamp((s.sliceMs || 120) / 1000, 0.05, 0.25);
+                  this.specHoldLeft = Math.max(
+                    Math.floor(sliceSec * this.sampleRateLocal),
+                    Math.floor(Math.max(0.5, s.holdSec) * this.sampleRateLocal)
+                  );
+                }
+
+                const xfadeSamples = Math.max(hop, Math.floor(Math.max(0.2, s.crossfadeSec) * this.sampleRateLocal));
+                if (this.specXfade < 1) {
+                  this.specXfade = Math.min(1, this.specXfade + hop / xfadeSamples);
+                }
+                this.specHoldLeft -= hop;
+                this.synthesizeSpectralHop();
+              }
+
+              const outIdx = this.specOutRead;
+              const fL = this.specOutL[outIdx] || 0;
+              const fR = this.specOutR[outIdx] || 0;
+              this.specOutL[outIdx] = 0;
+              this.specOutR[outIdx] = 0;
+              this.specOutRead = (outIdx + 1) % this.specOutL.length;
+              const wet = clamp(s.wet, 0, 1);
+              return [pL * (1 - wet) + fL * wet, pR * (1 - wet) + fR * wet];
+            }
+
+            applyModulatedLowpass(pL, pR) {
+              const m = this.fx.modulatedLowpass;
+              if (!m.enabled) return [pL, pR];
+              const period = Math.max(8, m.lfoPeriodSec || 36);
+              this.lpfLfoPhase += (2 * Math.PI) / (period * this.sampleRateLocal);
+              const lfo = Math.sin(this.lpfLfoPhase);
+              const depth = clamp(m.lfoDepth, 0, 1);
+              const base = clamp(m.cutoffHz, 80, this.sampleRateLocal * 0.45);
+              // Sweep roughly ± octaves based on depth
+              const cutoff = clamp(base * Math.pow(2, lfo * depth * 2.2), 60, this.sampleRateLocal * 0.42);
+              const res = clamp(m.resonance, 0, 0.9);
+              const f = 2 * Math.sin(Math.PI * cutoff / this.sampleRateLocal);
+              const fb = res + res / (1 - f);
+              this.lpfY1L += f * (pL - this.lpfY1L + fb * (this.lpfY1L - this.lpfY2L));
+              this.lpfY2L += f * (this.lpfY1L - this.lpfY2L);
+              this.lpfY1R += f * (pR - this.lpfY1R + fb * (this.lpfY1R - this.lpfY2R));
+              this.lpfY2R += f * (this.lpfY1R - this.lpfY2R);
+              return [this.lpfY2L, this.lpfY2R];
+            }
+
+            applyLongReverb(pL, pR) {
+              const r = this.fx.longReverb;
+              if (!r.enabled) return [pL, pR];
+              const decay = Math.max(0.5, r.decaySec || 12);
+              const damp = clamp(r.damp, 0, 0.95);
+              const wet = clamp(r.wet, 0, 1);
+              let sumL = 0;
+              let sumR = 0;
+              for (let i = 0; i < this.reverbCombs.length; i += 1) {
+                const c = this.reverbCombs[i];
+                const feedback = Math.pow(0.001, c.len / (decay * this.sampleRateLocal));
+                let delayedL = c.bufL[c.idx];
+                let delayedR = c.bufR[c.idx];
+                c.filterL = delayedL * (1 - damp) + c.filterL * damp;
+                c.filterR = delayedR * (1 - damp) + c.filterR * damp;
+                c.bufL[c.idx] = pL + c.filterL * feedback;
+                c.bufR[c.idx] = pR + c.filterR * feedback;
+                c.idx = (c.idx + 1) % c.len;
+                sumL += delayedL;
+                sumR += delayedR;
+              }
+              sumL *= 0.12;
+              sumR *= 0.12;
+              const apGain = 0.5;
+              for (let i = 0; i < this.reverbAps.length; i += 1) {
+                const a = this.reverbAps[i];
+                const bufL = a.bufL[a.idx];
+                const bufR = a.bufR[a.idx];
+                const outL = -sumL + bufL;
+                const outR = -sumR + bufR;
+                a.bufL[a.idx] = sumL + bufL * apGain;
+                a.bufR[a.idx] = sumR + bufR * apGain;
+                a.idx = (a.idx + 1) % a.len;
+                sumL = outL;
+                sumR = outR;
+              }
+              return [pL * (1 - wet) + sumL * wet, pR * (1 - wet) + sumR * wet];
+            }
+
+            process(_inputs, outputs) {
+              const output = outputs[0];
+              if (!output || !output[0]) return true;
+              const frames = output[0].length;
+              const durationSec = this.length / this.sampleRateLocal;
+
+              for (let i = 0; i < frames; i += 1) {
+                let left = 0;
+                let right = 0;
+
+                if (this.playing && this.length > 2) {
+                  let rate = this.currentRate();
+
+                  if (this.fx.reverse.enabled && this.fx.reverse.scope === "segment") {
+                    const posSec = this.position / this.sampleRateLocal;
+                    const inside = posSec >= this.fx.reverse.segmentStart && posSec <= this.fx.reverse.segmentEnd;
+                    if (inside) rate = -Math.abs(rate);
+                    else rate = Math.abs(rate);
+                    // #region agent log
+                    if (inside !== this._dbgRevInside) {
+                      this._dbgRevFlips += 1;
+                      this._dbgRevInside = inside;
+                    }
+                    const sign = rate < 0 ? -1 : 1;
+                    if (sign !== this._dbgRevLastSign) {
+                      this._dbgRevFlips += 1;
+                      this._dbgRevLastSign = sign;
+                    }
+                    this._dbgRevCounter += 1;
+                    if ((this._dbgRevCounter % 2048) === 0) {
+                      this.port.postMessage({
+                        type: "dbg-reverse-rt",
+                        posSec: posSec,
+                        rate: rate,
+                        inside: inside,
+                        flips: this._dbgRevFlips,
+                        segmentStart: this.fx.reverse.segmentStart,
+                        segmentEnd: this.fx.reverse.segmentEnd,
+                        clampedLow: this.position <= 0,
+                      });
+                    }
+                    // #endregion
+                  }
+
+                  const pitchRatio = this.fx.pitchTime.enabled
+                    ? Math.pow(2, this.fx.pitchTime.pitchSemitones / 12)
+                    : 1;
+
+                  const readAt = (posSamples, chIndex) => {
+                    const ch = this.channels[Math.min(chIndex, this.channels.length - 1)];
+                    if (this.fx.cutUp.enabled) {
+                      return this.cutUpSample(ch, posSamples / this.sampleRateLocal);
+                    }
+                    return this.readSample(ch, posSamples);
+                  };
+
+                  const grainMix = (posSamples, chIndex) => {
+                    if (!this.fx.pitchTime.enabled || Math.abs(pitchRatio - 1) < 0.001) {
+                      return readAt(posSamples, chIndex);
+                    }
+                    const g = this.grainSize;
+                    const phase = (this.grainPhase % g) / g;
+                    const env = Math.sin(Math.PI * phase);
+                    const env2 = Math.sin(Math.PI * ((phase + 0.5) % 1));
+                    const a = readAt(posSamples, chIndex);
+                    const b = readAt(posSamples + g * 0.5 * pitchRatio, chIndex);
+                    return a * env + b * env2;
+                  };
+
+                  let pL = grainMix(this.position, 0);
+                  let pR = grainMix(this.position, Math.min(1, this.channels.length - 1));
+
+                  if (this.fx.collage.enabled && this.fx.collage.layers && this.fx.collage.layers.length) {
+                    for (let li = 0; li < this.fx.collage.layers.length; li += 1) {
+                      const layer = this.fx.collage.layers[li];
+                      const layerPos = this.position - layer.delaySec * this.sampleRateLocal * layer.speedFactor;
+                      if (layerPos < 0 || layerPos >= this.length) continue;
+                      const g = layer.gain || 0;
+                      pL += grainMix(layerPos, 0) * g;
+                      pR += grainMix(layerPos, Math.min(1, this.channels.length - 1)) * g;
+                    }
+                  }
+
+                  if (this.fx.cutUp.enabled) {
+                    this.fx.cutUp.cursor += Math.abs(rate) / this.sampleRateLocal;
+                    this.position = this.mapCutUp(this.fx.cutUp.cursor);
+                    this.virtualTime = this.fx.cutUp.cursor;
+                  } else if (this.fx.loop.enabled) {
+                    this.position += rate;
+                    const posSec = this.position / this.sampleRateLocal;
+                    const bounds = this.loopBounds();
+                    if (posSec >= bounds.end || posSec < bounds.start) {
+                      if (this.fx.loop.driftMode === "random") {
+                        const maxStart = Math.max(0, durationSec - this.fx.loop.durationSec);
+                        this.fx.loop.driftPos = Math.random() * maxStart;
+                      } else if (this.fx.loop.driftMode === "sliding") {
+                        this.fx.loop.driftPos =
+                          (this.fx.loop.driftPos + Math.max(0.02, this.fx.loop.durationSec * 0.15)) %
+                          Math.max(0.01, durationSec - this.fx.loop.durationSec);
+                      } else {
+                        this.fx.loop.driftPos = this.fx.loop.startSec;
+                      }
+                      const next = this.loopBounds();
+                      this.position = next.start * this.sampleRateLocal;
+                    }
+                    this.virtualTime = this.position / this.sampleRateLocal;
+                  } else {
+                    this.position += rate;
+                    if (this.position >= this.length - 2) {
+                      this.position = this.length - 2;
+                      this.playing = false;
+                      this.port.postMessage({ type: "ended" });
+                    } else if (this.position < 0) {
+                      this.position = 0;
+                    }
+                    this.virtualTime = this.position / this.sampleRateLocal;
+                  }
+
+                  this.grainPhase += pitchRatio;
+
+                  const g = this.fx.glitch;
+                  if (g.enabled) {
+                    const intensity = g.intensity;
+                    const mono = (Math.abs(pL) + Math.abs(pR)) * 0.5;
+                    const transient = mono - this.lastTransient;
+                    this.lastTransient = mono * 0.85;
+
+                    let trigger = g.triggerMode === "continuous";
+                    if (g.triggerMode === "random-burst") trigger = Math.random() < intensity * 0.02;
+                    if (g.triggerMode === "threshold") trigger = transient > (0.12 - intensity * 0.1);
+
+                    if (g.gapLeft > 0) {
+                      g.gapLeft -= 1;
+                      pL = 0;
+                      pR = 0;
+                    } else if (g.freezeLeft > 0 && g.freezeBuf) {
+                      g.freezeLeft -= 1;
+                      pL = g.freezeBuf[0];
+                      pR = g.freezeBuf[1];
+                    } else if (trigger || g.triggerMode === "continuous") {
+                      const bits = Math.max(2, Math.round(16 - intensity * 12));
+                      const step = Math.pow(2, bits - 1);
+                      pL = Math.round(pL * step) / step;
+                      pR = Math.round(pR * step) / step;
+
+                      const holdLen = Math.max(1, Math.floor(1 + intensity * 24));
+                      if (g.holdLeft <= 0 || !g.holdSample) {
+                        g.holdSample = [pL, pR];
+                        g.holdLeft = holdLen;
+                      } else {
+                        g.holdLeft -= 1;
+                        pL = g.holdSample[0];
+                        pR = g.holdSample[1];
+                      }
+
+                      if (Math.random() < intensity * 0.0015) {
+                        g.freezeBuf = [pL, pR];
+                        g.freezeLeft = Math.floor(this.sampleRateLocal * (0.01 + intensity * 0.08));
+                      }
+                      if (Math.random() < intensity * 0.0009) {
+                        g.gapLeft = Math.floor(this.sampleRateLocal * (0.005 + intensity * 0.05));
+                      }
+                    }
+                  }
+
+                  let banded = this.applyBandIsolation(pL, pR);
+                  let frozen = this.applySpectralFreeze(banded[0], banded[1]);
+                  let filtered = this.applyModulatedLowpass(frozen[0], frozen[1]);
+                  let reverbed = this.applyLongReverb(filtered[0], filtered[1]);
+                  left = reverbed[0];
+                  right = reverbed[1];
+                  this.outputMeter = this.outputMeter * 0.995 + (Math.abs(left) + Math.abs(right)) * 0.0025;
+                }
+
+                output[0][i] = left;
+                if (output.length > 1) output[1][i] = right;
+              }
+
+              this._posCounter += 1;
+              if (this.playing && (this._posCounter & 7) === 0) {
+                this.port.postMessage({
+                  type: "pos",
+                  position: this.position,
+                  virtualTime: this.virtualTime,
+                  meter: this.outputMeter,
+                });
+              }
+              return true;
+            }
+          }
+          registerProcessor("weird-processor", WeirdProcessor);
+        `;
+      }
+
+      async function addWeirdProcessorModule(context) {
+        if (!context.audioWorklet) {
+          throw new Error(
+            "AudioWorklet is unavailable. Serve this page over http://localhost (not file://) in a recent Chrome/Firefox/Safari."
+          );
+        }
+
+        const source = createWeirdWorkletSource();
+        const tryAddModule = async (url, revoke) => {
+          try {
+            await context.audioWorklet.addModule(url);
+          } finally {
+            if (revoke) revoke();
+          }
+        };
+
+        let lastError = null;
+        try {
+          const blobUrl = URL.createObjectURL(
+            new Blob([source], { type: "application/javascript" })
+          );
+          await tryAddModule(blobUrl, () => URL.revokeObjectURL(blobUrl));
+          lastError = null;
+        } catch (err) {
+          lastError = err;
+          const msg = err && err.message ? err.message : String(err);
+          if (/already registered/i.test(msg)) {
+            lastError = null;
+          } else {
+            try {
+              const dataUrl =
+                "data:text/javascript;charset=utf-8," + encodeURIComponent(source);
+              await tryAddModule(dataUrl);
+              lastError = null;
+            } catch (err2) {
+              const msg2 = err2 && err2.message ? err2.message : String(err2);
+              if (/already registered/i.test(msg2)) lastError = null;
+              else lastError = err2;
+            }
+          }
+        }
+
+        if (lastError) {
+          const msg = lastError && lastError.message ? lastError.message : String(lastError);
+          throw new Error(
+            "Audio engine failed to start (" + msg + "). " +
+            "Open via http://localhost — in the project folder run: python3 -m http.server 8765"
+          );
+        }
+      }
+
+      function copyBufferChannels(buffer) {
+        const channels = [];
+        for (let index = 0; index < buffer.numberOfChannels; index += 1) {
+          const src = buffer.getChannelData(index);
+          const copy = new Float32Array(src.length);
+          copy.set(src);
+          channels.push(copy);
+        }
+        return channels;
+      }
+
+      function postInitChannels(node, channels) {
+        try {
+          node.port.postMessage(
+            { type: "init", channels },
+            channels.map((ch) => ch.buffer)
+          );
+        } catch (err) {
+          const copies = channels.map((ch) => {
+            const again = new Float32Array(ch.length);
+            again.set(ch);
+            return again;
+          });
+          node.port.postMessage({ type: "init", channels: copies });
+        }
+      }
+
+      async function createWeirdEngine(context, buffer, destination) {
+        await addWeirdProcessorModule(context);
+
+        const channelCount = Math.min(2, Math.max(1, buffer.numberOfChannels));
+        const node = new AudioWorkletNode(context, "weird-processor", {
+          numberOfOutputs: 1,
+          outputChannelCount: [channelCount],
+        });
+
+        postInitChannels(node, copyBufferChannels(buffer));
+
+        const dryGain = context.createGain();
+        dryGain.gain.value = 1;
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.7;
+
+        node.connect(dryGain);
+        dryGain.connect(analyser);
+        analyser.connect(destination);
+
+        return { node, analyser, dryGain };
+      }
+
+      function encodeWav(audioBuffer) {
+        const numChannels = audioBuffer.numberOfChannels;
+        const sampleRate = audioBuffer.sampleRate;
+        const bitDepth = 16;
+        const samples = audioBuffer.length;
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numChannels * bytesPerSample;
+        const dataSize = samples * blockAlign;
+        const headerSize = 44;
+        const buffer = new ArrayBuffer(headerSize + dataSize);
+        const view = new DataView(buffer);
+        const writeString = (offset, string) => {
+          for (let i = 0; i < string.length; i += 1) view.setUint8(offset + i, string.charCodeAt(i));
+        };
+
+        writeString(0, "RIFF");
+        view.setUint32(4, 36 + dataSize, true);
+        writeString(8, "WAVE");
+        writeString(12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeString(36, "data");
+        view.setUint32(40, dataSize, true);
+
+        const channels = Array.from(
+          { length: numChannels },
+          (_, index) => audioBuffer.getChannelData(index)
+        );
+        let offset = headerSize;
+        for (let i = 0; i < samples; i += 1) {
+          for (let ch = 0; ch < numChannels; ch += 1) {
+            const sample = clamp(channels[ch][i] || 0, -1, 1);
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+            offset += 2;
+          }
+        }
+        return buffer;
+      }
+
+      function triggerDownload(arrayBuffer, filename) {
+        const blob = new Blob([arrayBuffer], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      }
+
+      function waitForWorkletMessage(node, type, timeoutMs = 15000) {
+        return new Promise((resolve, reject) => {
+          const timer = window.setTimeout(() => {
+            node.port.removeEventListener("message", onMessage);
+            reject(new Error(`Timed out waiting for worklet "${type}".`));
+          }, timeoutMs);
+          const onMessage = (event) => {
+            if (!event.data || event.data.type !== type) return;
+            window.clearTimeout(timer);
+            node.port.removeEventListener("message", onMessage);
+            resolve(event.data);
+          };
+          node.port.addEventListener("message", onMessage);
+          node.port.start?.();
+        });
+      }
+
+      async function renderModifiedTrack(buffer, fx, chaos, cutSeed, windowOpts = null) {
+        const channelCount = Math.min(2, Math.max(1, buffer.numberOfChannels));
+        const speedPct = fx.pitchTimeDecouple?.enabled
+          ? clamp(fx.pitchTimeDecouple.speedPercent ?? 100, 10, 400)
+          : 100;
+        const speedFactor = speedPct / 100;
+        const windowed =
+          windowOpts &&
+          Number.isFinite(windowOpts.fromSec) &&
+          Number.isFinite(windowOpts.lengthSec);
+        const fromSec = windowed ? clamp(windowOpts.fromSec, 0, buffer.duration) : 0;
+        const windowLengthSec = windowed
+          ? clamp(windowOpts.lengthSec, 0.5, Math.max(0.5, buffer.duration - fromSec))
+          : null;
+        // Slow playback needs a longer offline buffer to cover the full stretched piece.
+        const durationScale = speedFactor > 0 ? Math.max(1, 1 / Math.min(speedFactor, 1)) : 1;
+        const outSeconds = windowed
+          ? windowLengthSec
+          : Math.max(buffer.duration, buffer.duration * durationScale);
+        const renderLength = Math.max(1, Math.ceil(outSeconds * buffer.sampleRate));
+        const offline = new OfflineAudioContext(channelCount, renderLength, buffer.sampleRate);
+        await addWeirdProcessorModule(offline);
+        const node = new AudioWorkletNode(offline, "weird-processor", {
+          numberOfOutputs: 1,
+          outputChannelCount: [channelCount],
+        });
+        node.connect(offline.destination);
+
+        // Offline rendering can finish before MessagePort delivery — wait for acks.
+        const ready = waitForWorkletMessage(node, "ready");
+        postInitChannels(node, copyBufferChannels(buffer));
+        const readyMsg = await ready;
+        if (!readyMsg.length || readyMsg.length < 2) {
+          throw new Error("Offline render got an empty audio buffer.");
+        }
+
+        const payload = buildWorkletFx(fx, chaos, buffer.duration, cutSeed);
+        node.port.postMessage({ type: "fx", fx: payload });
+
+        // random/sliding place the read head in applyFx — don't yank it back to 0.
+        const keepWorkletHead =
+          !windowed &&
+          payload.loop.enabled &&
+          (payload.loop.driftMode === "random" || payload.loop.driftMode === "sliding");
+
+        const playing = waitForWorkletMessage(node, "playing");
+        const reverseFull =
+          payload.reverse?.enabled && payload.reverse.scope === "full-track";
+        if (keepWorkletHead) {
+          node.port.postMessage({ type: "play" });
+        } else if (reverseFull) {
+          // Full-track reverse reads backward — start near the end (or window end).
+          const endSec = windowed ? fromSec + windowLengthSec : buffer.duration;
+          const endPos = Math.max(0, Math.min(buffer.length - 2, Math.floor(endSec * buffer.sampleRate) - 2));
+          node.port.postMessage({
+            type: "seek",
+            position: endPos,
+            virtualTime: endSec,
+          });
+          node.port.postMessage({ type: "play", position: endPos });
+        } else if (windowed) {
+          const pos = Math.floor(fromSec * buffer.sampleRate);
+          node.port.postMessage({ type: "seek", position: pos, virtualTime: fromSec });
+          node.port.postMessage({ type: "play", position: pos });
+        } else {
+          node.port.postMessage({ type: "seek", position: 0, virtualTime: 0 });
+          node.port.postMessage({ type: "play", position: 0 });
+        }
+        await playing;
+
+        const rendered = await offline.startRendering();
+        if (windowed) {
+          return { buffer: rendered, fromSec, lengthSec: rendered.duration };
+        }
+        return rendered;
+      }
+
+      function decodeAudioBuffer(context, arrayBuffer) {
+        // Some browsers detach the buffer; always decode a copy.
+        const copy = arrayBuffer.slice(0);
+        return context.decodeAudioData(copy);
+      }
+
+      function DropScreen({ onFile }) {
+        const inputRef = useRef(null);
+        const [dragging, setDragging] = useState(false);
+        const [error, setError] = useState("");
+        const [loading, setLoading] = useState(false);
+        const [progress, setProgress] = useState(0);
+
+        const select = async (file) => {
+          if (!file) return;
+          const looksAudio =
+            file.type.startsWith("audio/") ||
+            /\.(wav|mp3|ogg|flac|m4a|aac|aiff|aif|webm)$/i.test(file.name);
+          if (!looksAudio) {
+            setError("That file does not look like audio.");
+            return;
+          }
+          setError("");
+          setLoading(true);
+          setProgress(1);
+          try {
+            await onFile(file, setProgress);
+          } catch (reason) {
+            console.error(reason);
+            const detail = reason && reason.message ? reason.message : "Unknown error";
+            setError(detail);
+            setLoading(false);
+            setProgress(0);
+          }
+        };
+
+        return (
+          <main
+            className={`drop-screen ${dragging ? "dragging" : ""}`}
+            onClick={() => !loading && inputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              select(event.dataTransfer.files[0]);
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept="audio/*"
+              hidden
+              onChange={(event) => select(event.target.files[0])}
+            />
+            <div className="drop-content">
+              <h1>{loading ? `${progress}%` : "Drop audio here"}</h1>
+              <p className={error ? "error" : ""}>
+                {error || (loading ? "Analyzing locally in your browser" : "Experimental viz fork — drop audio, or tap to browse")}
+              </p>
+            </div>
+          </main>
+        );
+      }
+
+      function parseTypedNumber(raw) {
+        if (raw == null) return NaN;
+        const cleaned = String(raw).trim().replace(",", ".");
+        if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === "-.") return NaN;
+        return Number(cleaned);
+      }
+
+      function NumberField({ value, min, max, step, digits = 2, onChange, ariaLabel }) {
+        const [text, setText] = useState(() => formatParam(value, digits));
+        const [focused, setFocused] = useState(false);
+
+        useEffect(() => {
+          if (!focused) setText(formatParam(value, digits));
+        }, [value, digits, focused]);
+
+        const commit = (raw) => {
+          const parsed = parseTypedNumber(raw);
+          if (!Number.isFinite(parsed)) {
+            setText(formatParam(value, digits));
+            return;
+          }
+          const next = clamp(parsed, min, max);
+          onChange(next);
+          setText(formatParam(next, digits));
+        };
+
+        return (
+          <input
+            className="val-input"
+            type="text"
+            inputMode="decimal"
+            aria-label={ariaLabel}
+            value={focused ? text : formatParam(value, digits)}
+            onFocus={(e) => {
+              setFocused(true);
+              setText(formatParam(value, digits));
+              e.target.select();
+            }}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => {
+              setFocused(false);
+              commit(text);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                setText(formatParam(value, digits));
+                e.currentTarget.blur();
+              } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                const dir = e.key === "ArrowUp" ? 1 : -1;
+                const base = Number.isFinite(parseTypedNumber(text)) ? parseTypedNumber(text) : value;
+                const next = clamp(base + dir * step, min, max);
+                onChange(next);
+                setText(formatParam(next, digits));
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        );
+      }
+
+      function Toggle({ on, onClick, label }) {
+        return (
+          <button
+            type="button"
+            className={`fx-toggle ${on ? "on" : ""}`}
+            onClick={onClick}
+            aria-pressed={on}
+            aria-label={label}
+          />
+        );
+      }
+
+      function Slider({ label, value, min, max, step, onChange, digits = 2, rest }) {
+        const span = max - min;
+        const showRest =
+          typeof rest === "number" &&
+          Number.isFinite(rest) &&
+          span > 0 &&
+          rest >= min - 1e-9 &&
+          rest <= max + 1e-9;
+        const restPct = showRest ? (clamp(rest, min, max) - min) / span * 100 : null;
+
+        return (
+          <label className="param">
+            <span>{label}</span>
+            <NumberField
+              value={value}
+              min={min}
+              max={max}
+              step={step}
+              digits={digits}
+              onChange={onChange}
+              ariaLabel={label}
+            />
+            <div className="slider-track">
+              {showRest && (
+                <button
+                  type="button"
+                  className="rest-mark"
+                  data-label={formatParam(rest, digits)}
+                  style={{ left: `${restPct}%` }}
+                  title={`Restore default: ${formatParam(rest, digits)}`}
+                  aria-label={`Restore ${label} default ${formatParam(rest, digits)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange(rest);
+                  }}
+                />
+              )}
+              <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+              />
+            </div>
+          </label>
+        );
+      }
+
+      function Select({ label, value, options, onChange }) {
+        return (
+          <label className="param">
+            <span>{label}</span>
+            <span style={{ color: "rgba(241,239,231,.45)", fontSize: 10 }}>{value}</span>
+            <select value={value} onChange={(e) => onChange(e.target.value)}>
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </label>
+        );
+      }
+
+      const MODULE_TITLES = {
+        wowFlutter: "vinylWobble",
+        pitchTimeDecouple: "pitchTime",
+        loopFragment: "loop/cut",
+        glitchDegrade: "glitch",
+        reverse: "reverse",
+        layeredCollage: "collage",
+        bandIsolation: "toneIsolation",
+        spectralFreeze: "freeze",
+        modulatedLowpass: "lowpass",
+        longReverb: "reverb",
+        stochasticBehavior: "stochastic",
+      };
+
+      function timeToX(timeSec, playPosition, centerX) {
+        return centerX + (timeSec - playPosition) * PIXELS_PER_SECOND;
+      }
+
+      function drawFxRegionOverlays(ctx, fx, duration, playPosition, centerX, height, cutSeed) {
+        const loop = fx.loopFragment;
+        if (loop?.enabled && !isCutUpMode(loop.mode)) {
+          const start = loop.startSec || 0;
+          const end = start + Math.max(0.05, loop.durationSec || 0.35);
+          const x0 = timeToX(start, playPosition, centerX);
+          const x1 = timeToX(end, playPosition, centerX);
+          const left = Math.min(x0, x1);
+          const width = Math.max(1, Math.abs(x1 - x0));
+          ctx.fillStyle = "rgba(232, 194, 122, 0.12)";
+          ctx.fillRect(left, 0, width, height);
+          ctx.strokeStyle = "rgba(232, 194, 122, 0.45)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x0, 0);
+          ctx.lineTo(x0, height);
+          ctx.moveTo(x1, 0);
+          ctx.lineTo(x1, height);
+          ctx.stroke();
+        }
+
+        if (loop?.enabled && isCutUpMode(loop.mode)) {
+          const map = buildCutMap(duration, loop.durationSec, loop.mode, cutSeed);
+          ctx.strokeStyle = "rgba(241, 239, 231, 0.28)";
+          ctx.lineWidth = 1;
+          for (const seg of map) {
+            const x = timeToX(seg.start, playPosition, centerX);
+            if (x < -2 || x > centerX * 2 + 2) continue;
+            ctx.beginPath();
+            ctx.moveTo(x, height * 0.18);
+            ctx.lineTo(x, height * 0.82);
+            ctx.stroke();
+          }
+        }
+
+        const rev = fx.reverse;
+        if (rev?.enabled) {
+          if (rev.scope === "full-track") {
+            // Light reverse cue — no full-rect tint (that flattened contrast).
+            ctx.strokeStyle = "rgba(255, 132, 111, 0.28)";
+            ctx.lineWidth = 1;
+            const mid = height * 0.5;
+            for (let x = 12; x < centerX * 2; x += 26) {
+              ctx.beginPath();
+              ctx.moveTo(x + 8, mid - height * 0.06);
+              ctx.lineTo(x, mid);
+              ctx.lineTo(x + 8, mid + height * 0.06);
+              ctx.stroke();
+            }
+          } else {
+            const start = rev.segmentStart || 0;
+            const end = Math.max(start + 0.05, rev.segmentEnd || start + 0.05);
+            const x0 = timeToX(start, playPosition, centerX);
+            const x1 = timeToX(end, playPosition, centerX);
+            const left = Math.min(x0, x1);
+            const width = Math.max(1, Math.abs(x1 - x0));
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(left, 0, width, height);
+            ctx.clip();
+            ctx.strokeStyle = "rgba(255, 132, 111, 0.35)";
+            ctx.lineWidth = 1;
+            for (let x = left - (left % 8); x < left + width + 8; x += 8) {
+              ctx.beginPath();
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x + height * 0.35, height);
+              ctx.stroke();
+            }
+            ctx.restore();
+            ctx.strokeStyle = "rgba(255, 132, 111, 0.55)";
+            ctx.strokeRect(left, 1, width, height - 2);
+          }
+        }
+      }
+
+      function drawEchoTrails(ctx, data, fx, playPosition, centerX, height, middle) {
+        const collage = fx.layeredCollage;
+        if (!collage?.enabled || !data?.length) return;
+        const layers = [];
+        if (collage.layerCount >= 2) {
+          layers.push({ delay: collage.layer1Delay || 0, gain: collage.layer1Gain || 0 });
+        }
+        if (collage.layerCount >= 3) {
+          layers.push({ delay: collage.layer2Delay || 0, gain: collage.layer2Gain || 0 });
+        }
+        if (collage.layerCount >= 4) {
+          layers.push({ delay: collage.layer3Delay || 0, gain: collage.layer3Gain || 0 });
+        }
+        const leftTime = playPosition - centerX / PIXELS_PER_SECOND;
+        const rightTime = playPosition + centerX / PIXELS_PER_SECOND;
+        for (const layer of layers) {
+          if (layer.gain < 0.02) continue;
+          ctx.fillStyle = "#c9c9c5";
+          ctx.globalAlpha = clamp(layer.gain * 0.55, 0.08, 0.42);
+          const first = Math.max(0, Math.floor(leftTime / STEM_STEP_SECONDS) - 1);
+          const last = Math.min(data.length - 1, Math.ceil(rightTime / STEM_STEP_SECONDS) + 1);
+          for (let stem = first; stem <= last; stem += 1) {
+            const stemTime = stem * STEM_STEP_SECONDS;
+            const x =
+              centerX +
+              (stemTime - playPosition) * PIXELS_PER_SECOND -
+              layer.delay * PIXELS_PER_SECOND;
+            const stemHeight = Math.max(10, data[stem] * height * 0.7);
+            ctx.beginPath();
+            ctx.roundRect(x, middle - stemHeight / 2, Math.max(2, STEM_WIDTH - 1), stemHeight, 1);
+            ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      const FX_HELP = {
+        wowFlutter:
+          "Makes the track sound like a warped vinyl record — a slow wobble and a faster jitter. Both can run at the same time.",
+        pitchTimeDecouple:
+          "Change how fast it plays and how high or low it sounds, separately. 100% speed = normal. Pitch moves the tone up or down without locking to that speed.",
+        loopFragment:
+          "Loop a short bit of the song, or chop the whole track into pieces and rearrange them. Loop modes repeat one window; cut-up modes shuffle or reorder slices. Joins can be smooth or clicky.",
+        glitchDegrade:
+          "Makes the sound crunchy, stuck, or drop out in silence. Intensity = how hard. Trigger: always on, random bursts, or only on loud hits.",
+        reverse:
+          "Plays the music backward. Whole song, or only between the start and end times you set — then it goes forward again.",
+        layeredCollage:
+          "Stacks delayed copies of the same track on top of each other. Each layer can start late, play a bit slower or faster, and be quieter or louder.",
+        bandIsolation:
+          "Keeps only some tones and thins the rest so the song feels less full. Choose mid+bright, bright only, or mid only. Soften hits weakens drums and sudden attacks.",
+        spectralFreeze:
+          "Grabs a tiny moment and holds that tone like a continuous drone. After the hold time it grabs a new moment and blends over. Wet = how much freeze vs the live track.",
+        modulatedLowpass:
+          "Slowly muffles the sound, like going underwater. Cutoff is how muffled; sweep cycle and width move that muffling over time. Resonance adds a soft whistle on top.",
+        longReverb:
+          "Adds a long room echo that hangs in the air. Decay = how long it rings. Wet = how much echo. Damp = darker, softer tail.",
+        stochasticBehavior:
+          "On a timer, randomly turns other effects on or off or nudges their settings. BPM sets how often; chance is how likely something changes each beat.",
+        chaos:
+          "Makes effects that are already on stronger. Does nothing by itself. 0 = leave sliders as set; 1 = push them harder.",
+      };
+
+      function HoverHelp({ text, children }) {
+        const anchorRef = useRef(null);
+        const tipRef = useRef(null);
+        const hideTimer = useRef(0);
+        const [open, setOpen] = useState(false);
+        const [coords, setCoords] = useState({ left: 0, top: 0, width: 280 });
+
+        const place = useCallback(() => {
+          const anchor = anchorRef.current;
+          if (!anchor) return;
+          const r = anchor.getBoundingClientRect();
+          const width = Math.min(320, window.innerWidth - 24);
+          const tipHeight = tipRef.current?.offsetHeight || 160;
+          let left = r.left;
+          if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+          if (left < 12) left = 12;
+
+          const spaceBelow = window.innerHeight - r.bottom - 12;
+          const spaceAbove = r.top - 12;
+          let top;
+          if (spaceBelow >= Math.min(tipHeight, 120) || spaceBelow >= spaceAbove) {
+            top = Math.min(r.bottom + 8, window.innerHeight - Math.min(tipHeight, 240) - 12);
+            top = Math.max(12, top);
+          } else {
+            top = Math.max(12, r.top - tipHeight - 8);
+          }
+          setCoords({ left, top, width });
+        }, []);
+
+        useEffect(() => {
+          if (!open) return undefined;
+          place();
+          const id = requestAnimationFrame(place);
+          const onMove = () => place();
+          window.addEventListener("scroll", onMove, true);
+          window.addEventListener("resize", onMove);
+          return () => {
+            cancelAnimationFrame(id);
+            window.removeEventListener("scroll", onMove, true);
+            window.removeEventListener("resize", onMove);
+          };
+        }, [open, place, text]);
+
+        useEffect(() => () => window.clearTimeout(hideTimer.current), []);
+
+        const show = () => {
+          window.clearTimeout(hideTimer.current);
+          setOpen(true);
+        };
+        const hide = () => {
+          window.clearTimeout(hideTimer.current);
+          hideTimer.current = window.setTimeout(() => setOpen(false), 140);
+        };
+
+        return (
+          <>
+            <span
+              ref={anchorRef}
+              className={`fx-help-target ${open ? "open" : ""}`}
+              onMouseEnter={show}
+              onMouseLeave={hide}
+              onFocus={show}
+              onBlur={hide}
+            >
+              {children}
+            </span>
+            {open &&
+              ReactDOM.createPortal(
+                <div
+                  ref={tipRef}
+                  className="fx-info-tip"
+                  role="tooltip"
+                  style={{
+                    left: coords.left,
+                    top: coords.top,
+                    width: coords.width,
+                  }}
+                  onMouseEnter={show}
+                  onMouseLeave={hide}
+                >
+                  {text}
+                </div>,
+                document.body
+              )}
+          </>
+        );
+      }
+
+      function FxModule({ title, help, enabled, onToggle, open, onToggleOpen, children }) {
+        return (
+          <section className={`fx-module ${enabled ? "on" : ""} ${open ? "" : "collapsed"}`}>
+            <div className="fx-top">
+              <button
+                type="button"
+                className="fx-accordion-btn"
+                onClick={onToggleOpen}
+                aria-expanded={open}
+              >
+                <span className="fx-chevron" aria-hidden="true" />
+                <HoverHelp text={help}>
+                  <div className="fx-name">{title}</div>
+                </HoverHelp>
+              </button>
+              <div className="fx-top-actions">
+                <Toggle on={enabled} onClick={onToggle} label={`Toggle ${title}`} />
+              </div>
+            </div>
+            {open && <div className="params">{children}</div>}
+          </section>
+        );
+      }
+
+      function FxGroup({ group, hidden, onHide, children }) {
+        if (hidden) return null;
+        return (
+          <section className="fx-group">
+            <div className="fx-group-head">
+              <h3>{group.title}</h3>
+              <button
+                type="button"
+                className="fx-group-hide"
+                onClick={onHide}
+                title={`Hide ${group.title} group`}
+              >
+                Hide
+              </button>
+            </div>
+            <div className="fx-group-body">{children}</div>
+          </section>
+        );
+      }
+
+      function TimeField({ seconds, duration, onSeek }) {
+        const [text, setText] = useState(() => formatTime(seconds));
+        const [focused, setFocused] = useState(false);
+
+        useEffect(() => {
+          if (!focused) setText(formatTime(seconds));
+        }, [seconds, focused]);
+
+        const commit = (raw) => {
+          const parsed = parseTimeInput(raw);
+          if (!Number.isFinite(parsed)) {
+            setText(formatTime(seconds));
+            return;
+          }
+          const next = clamp(parsed, 0, duration);
+          onSeek(next);
+          setText(formatTime(next));
+        };
+
+        return (
+          <input
+            className="time-input"
+            type="text"
+            inputMode="decimal"
+            aria-label="Current time"
+            title="Type a time (mm:ss.t or seconds) and press Enter"
+            value={focused ? text : formatTime(seconds)}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onFocus={(e) => {
+              setFocused(true);
+              setText(formatTime(seconds));
+              e.target.select();
+            }}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => {
+              setFocused(false);
+              commit(text);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                setText(formatTime(seconds));
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        );
+      }
+
+      function EffectsPanel({
+        fx,
+        setFx,
+        chaos,
+        setChaos,
+        onResetClean,
+        duration,
+        hiddenGroups,
+        setHiddenGroups,
+        collapsedModules,
+        setCollapsedModules,
+      }) {
+        const patch = (key, partial) => {
+          setFx((prev) => ({ ...prev, [key]: { ...prev[key], ...partial } }));
+        };
+        const toggle = (key) => patch(key, { enabled: !fx[key].enabled });
+        const isOpen = (key) => !collapsedModules.includes(key);
+        const toggleOpen = (key) => {
+          setCollapsedModules((prev) =>
+            prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+          );
+        };
+        const hideGroup = (groupId) => {
+          const group = MODULE_GROUPS[groupId];
+          setHiddenGroups((prev) => (prev.includes(groupId) ? prev : [...prev, groupId]));
+          setFx((prev) => {
+            const next = { ...prev };
+            group.keys.forEach((key) => {
+              next[key] = { ...next[key], enabled: false };
+            });
+            return next;
+          });
+        };
+        const unhideGroup = (groupId) => {
+          setHiddenGroups((prev) => prev.filter((id) => id !== groupId));
+        };
+        const moduleProps = (key) => ({
+          title: MODULE_TITLES[key] || key,
+          help: FX_HELP[key],
+          enabled: fx[key].enabled,
+          onToggle: () => toggle(key),
+          open: isOpen(key),
+          onToggleOpen: () => toggleOpen(key),
+        });
+
+        return (
+          <aside className="fx-panel">
+            <div className="fx-header">
+              <h2>Modules</h2>
+            </div>
+            {hiddenGroups.length > 0 && (
+              <div className="fx-hidden-bar">
+                <span>Hidden groups — click to restore</span>
+                <div className="fx-hidden-chips">
+                  {hiddenGroups.map((id) => (
+                    <button key={id} type="button" onClick={() => unhideGroup(id)}>
+                      {MODULE_GROUPS[id].title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="fx-list">
+              <FxGroup
+                group={MODULE_GROUPS.destructive}
+                hidden={hiddenGroups.includes("destructive")}
+                onHide={() => hideGroup("destructive")}
+              >
+                <FxModule {...moduleProps("wowFlutter")}>
+                  <Slider label="depth" value={fx.wowFlutter.depth} min={0} max={0.08} step={0.001} digits={3} rest={DEFAULT_FX.wowFlutter.depth}
+                    onChange={(v) => patch("wowFlutter", { depth: v })} />
+                  <Slider label="rateHz (wow)" value={fx.wowFlutter.rateHz} min={0.1} max={4} step={0.05} rest={DEFAULT_FX.wowFlutter.rateHz}
+                    onChange={(v) => patch("wowFlutter", { rateHz: v })} />
+                  <Slider label="flutterDepth" value={fx.wowFlutter.flutterDepth} min={0} max={0.04} step={0.001} digits={3} rest={DEFAULT_FX.wowFlutter.flutterDepth}
+                    onChange={(v) => patch("wowFlutter", { flutterDepth: v })} />
+                  <Slider label="flutterRateHz" value={fx.wowFlutter.flutterRateHz} min={4} max={18} step={0.1} rest={DEFAULT_FX.wowFlutter.flutterRateHz}
+                    onChange={(v) => patch("wowFlutter", { flutterRateHz: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("loopFragment")}>
+                  {!isCutUpMode(fx.loopFragment.mode) && (
+                    <Slider label="startSec" value={fx.loopFragment.startSec} min={0} max={Math.max(0.1, duration - 0.05)} step={0.01} rest={DEFAULT_FX.loopFragment.startSec}
+                      onChange={(v) => patch("loopFragment", { startSec: v })} />
+                  )}
+                  <Slider
+                    label={isCutUpMode(fx.loopFragment.mode) ? "segmentLengthSec" : "durationSec"}
+                    value={fx.loopFragment.durationSec}
+                    min={0.05}
+                    max={4}
+                    step={0.01}
+                    rest={DEFAULT_FX.loopFragment.durationSec}
+                    onChange={(v) => patch("loopFragment", { durationSec: v })}
+                  />
+                  <Select
+                    label="mode"
+                    value={fx.loopFragment.mode}
+                    onChange={(v) => patch("loopFragment", { mode: v })}
+                    options={[
+                      { value: "fixed", label: "loop · fixed" },
+                      { value: "sliding", label: "loop · sliding" },
+                      { value: "random", label: "loop · random" },
+                      { value: "shuffle", label: "cut-up · shuffle" },
+                      { value: "reverse-order", label: "cut-up · reverse-order" },
+                      { value: "rule-based", label: "cut-up · rule-based (swap pairs)" },
+                    ]}
+                  />
+                  {isCutUpMode(fx.loopFragment.mode) && (
+                    <Select
+                      label="edges"
+                      value={fx.loopFragment.glitchClicks ? "clicks" : "crossfade"}
+                      onChange={(v) => patch("loopFragment", { glitchClicks: v === "clicks" })}
+                      options={[
+                        { value: "crossfade", label: "crossfade (clean)" },
+                        { value: "clicks", label: "hard clicks (glitch)" },
+                      ]}
+                    />
+                  )}
+                </FxModule>
+
+                <FxModule {...moduleProps("glitchDegrade")}>
+                  <Slider label="intensity" value={fx.glitchDegrade.intensity} min={0} max={1} step={0.01} rest={DEFAULT_FX.glitchDegrade.intensity}
+                    onChange={(v) => patch("glitchDegrade", { intensity: v })} />
+                  <Select
+                    label="triggerMode"
+                    value={fx.glitchDegrade.triggerMode}
+                    onChange={(v) => patch("glitchDegrade", { triggerMode: v })}
+                    options={[
+                      { value: "continuous", label: "continuous" },
+                      { value: "random-burst", label: "random-burst" },
+                      { value: "threshold", label: "threshold (transients)" },
+                    ]}
+                  />
+                </FxModule>
+
+                <FxModule {...moduleProps("reverse")}>
+                  <Select
+                    label="scope"
+                    value={fx.reverse.scope}
+                    onChange={(v) => patch("reverse", { scope: v })}
+                    options={[
+                      { value: "full-track", label: "full-track" },
+                      { value: "segment", label: "segment" },
+                    ]}
+                  />
+                  <Slider label="segmentStart" value={fx.reverse.segmentStart} min={0} max={Math.max(0.1, duration)} step={0.01} rest={DEFAULT_FX.reverse.segmentStart}
+                    onChange={(v) => patch("reverse", { segmentStart: v })} />
+                  <Slider label="segmentEnd" value={fx.reverse.segmentEnd} min={0} max={Math.max(0.1, duration)} step={0.01} rest={DEFAULT_FX.reverse.segmentEnd}
+                    onChange={(v) => patch("reverse", { segmentEnd: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("layeredCollage")}>
+                  <Slider label="layerCount" value={fx.layeredCollage.layerCount} min={2} max={4} step={1} digits={0} rest={DEFAULT_FX.layeredCollage.layerCount}
+                    onChange={(v) => patch("layeredCollage", { layerCount: v })} />
+                  <Slider label="L1 delaySec" value={fx.layeredCollage.layer1Delay} min={0} max={2} step={0.01} rest={DEFAULT_FX.layeredCollage.layer1Delay}
+                    onChange={(v) => patch("layeredCollage", { layer1Delay: v })} />
+                  <Slider label="L1 speed" value={fx.layeredCollage.layer1Speed} min={0.5} max={1.5} step={0.01} rest={DEFAULT_FX.layeredCollage.layer1Speed}
+                    onChange={(v) => patch("layeredCollage", { layer1Speed: v })} />
+                  <Slider label="L1 volume" value={fx.layeredCollage.layer1Gain} min={0} max={1} step={0.01} rest={DEFAULT_FX.layeredCollage.layer1Gain}
+                    onChange={(v) => patch("layeredCollage", { layer1Gain: v })} />
+                  <Slider label="L2 delaySec" value={fx.layeredCollage.layer2Delay} min={0} max={3} step={0.01} rest={DEFAULT_FX.layeredCollage.layer2Delay}
+                    onChange={(v) => patch("layeredCollage", { layer2Delay: v })} />
+                  <Slider label="L2 speed" value={fx.layeredCollage.layer2Speed} min={0.5} max={1.5} step={0.01} rest={DEFAULT_FX.layeredCollage.layer2Speed}
+                    onChange={(v) => patch("layeredCollage", { layer2Speed: v })} />
+                  <Slider label="L2 volume" value={fx.layeredCollage.layer2Gain} min={0} max={1} step={0.01} rest={DEFAULT_FX.layeredCollage.layer2Gain}
+                    onChange={(v) => patch("layeredCollage", { layer2Gain: v })} />
+                  {fx.layeredCollage.layerCount >= 3 && (
+                    <>
+                      <Slider label="L3 delaySec" value={fx.layeredCollage.layer3Delay} min={0} max={4} step={0.01} rest={DEFAULT_FX.layeredCollage.layer3Delay}
+                        onChange={(v) => patch("layeredCollage", { layer3Delay: v })} />
+                      <Slider label="L3 speed" value={fx.layeredCollage.layer3Speed} min={0.5} max={1.5} step={0.01} rest={DEFAULT_FX.layeredCollage.layer3Speed}
+                        onChange={(v) => patch("layeredCollage", { layer3Speed: v })} />
+                      <Slider label="L3 volume" value={fx.layeredCollage.layer3Gain} min={0} max={1} step={0.01} rest={DEFAULT_FX.layeredCollage.layer3Gain}
+                        onChange={(v) => patch("layeredCollage", { layer3Gain: v })} />
+                    </>
+                  )}
+                </FxModule>
+
+                <FxModule {...moduleProps("bandIsolation")}>
+                  <Select
+                    label="keep"
+                    value={fx.bandIsolation.keep}
+                    onChange={(v) => patch("bandIsolation", { keep: v })}
+                    options={[
+                      { value: "midsHighs", label: "mids + highs" },
+                      { value: "highsOnly", label: "highs only" },
+                      { value: "midsOnly", label: "mids only" },
+                    ]}
+                  />
+                  <Slider label="highpassHz" value={fx.bandIsolation.highpassHz} min={40} max={2000} step={10} digits={0} rest={DEFAULT_FX.bandIsolation.highpassHz}
+                    onChange={(v) => patch("bandIsolation", { highpassHz: v })} />
+                  <Slider label="lowpassHz" value={fx.bandIsolation.lowpassHz} min={800} max={16000} step={50} digits={0} rest={DEFAULT_FX.bandIsolation.lowpassHz}
+                    onChange={(v) => patch("bandIsolation", { lowpassHz: v })} />
+                  <Slider label="transientSoft" value={fx.bandIsolation.transientSoft} min={0} max={1} step={0.01} rest={DEFAULT_FX.bandIsolation.transientSoft}
+                    onChange={(v) => patch("bandIsolation", { transientSoft: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("stochasticBehavior")}>
+                  <Slider label="bpm" value={fx.stochasticBehavior.bpm} min={40} max={180} step={1} digits={0} rest={DEFAULT_FX.stochasticBehavior.bpm}
+                    onChange={(v) => patch("stochasticBehavior", { bpm: v })} />
+                  <Slider label="probabilityPerBeat" value={fx.stochasticBehavior.probability} min={0} max={1} step={0.01} rest={DEFAULT_FX.stochasticBehavior.probability}
+                    onChange={(v) => patch("stochasticBehavior", { probability: v })} />
+                </FxModule>
+              </FxGroup>
+
+              <FxGroup
+                group={MODULE_GROUPS.melodic}
+                hidden={hiddenGroups.includes("melodic")}
+                onHide={() => hideGroup("melodic")}
+              >
+                <FxModule {...moduleProps("pitchTimeDecouple")}>
+                  <Slider label="speed %" value={fx.pitchTimeDecouple.speedPercent} min={10} max={400} step={1} digits={0} rest={DEFAULT_FX.pitchTimeDecouple.speedPercent}
+                    onChange={(v) => patch("pitchTimeDecouple", { speedPercent: v })} />
+                  <Slider label="pitchSemitones" value={fx.pitchTimeDecouple.pitchSemitones} min={-12} max={12} step={0.1} digits={1} rest={DEFAULT_FX.pitchTimeDecouple.pitchSemitones}
+                    onChange={(v) => patch("pitchTimeDecouple", { pitchSemitones: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("spectralFreeze")}>
+                  <Slider label="sliceMs" value={fx.spectralFreeze.sliceMs} min={50} max={200} step={5} digits={0} rest={DEFAULT_FX.spectralFreeze.sliceMs}
+                    onChange={(v) => patch("spectralFreeze", { sliceMs: v })} />
+                  <Slider label="holdSec" value={fx.spectralFreeze.holdSec} min={0.5} max={30} step={0.1} rest={DEFAULT_FX.spectralFreeze.holdSec}
+                    onChange={(v) => patch("spectralFreeze", { holdSec: v })} />
+                  <Slider label="crossfadeSec" value={fx.spectralFreeze.crossfadeSec} min={0.2} max={12} step={0.1} rest={DEFAULT_FX.spectralFreeze.crossfadeSec}
+                    onChange={(v) => patch("spectralFreeze", { crossfadeSec: v })} />
+                  <Slider label="wet" value={fx.spectralFreeze.wet} min={0} max={1} step={0.01} rest={DEFAULT_FX.spectralFreeze.wet}
+                    onChange={(v) => patch("spectralFreeze", { wet: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("modulatedLowpass")}>
+                  <Slider label="cutoffHz" value={fx.modulatedLowpass.cutoffHz} min={120} max={8000} step={10} digits={0} rest={DEFAULT_FX.modulatedLowpass.cutoffHz}
+                    onChange={(v) => patch("modulatedLowpass", { cutoffHz: v })} />
+                  <Slider label="lfoPeriodSec" value={fx.modulatedLowpass.lfoPeriodSec} min={20} max={60} step={1} digits={0} rest={DEFAULT_FX.modulatedLowpass.lfoPeriodSec}
+                    onChange={(v) => patch("modulatedLowpass", { lfoPeriodSec: v })} />
+                  <Slider label="lfoDepth" value={fx.modulatedLowpass.lfoDepth} min={0} max={1} step={0.01} rest={DEFAULT_FX.modulatedLowpass.lfoDepth}
+                    onChange={(v) => patch("modulatedLowpass", { lfoDepth: v })} />
+                  <Slider label="resonance" value={fx.modulatedLowpass.resonance} min={0} max={0.85} step={0.01} rest={DEFAULT_FX.modulatedLowpass.resonance}
+                    onChange={(v) => patch("modulatedLowpass", { resonance: v })} />
+                </FxModule>
+
+                <FxModule {...moduleProps("longReverb")}>
+                  <Slider label="decaySec" value={fx.longReverb.decaySec} min={2} max={45} step={0.5} rest={DEFAULT_FX.longReverb.decaySec}
+                    onChange={(v) => patch("longReverb", { decaySec: v })} />
+                  <Slider label="wet" value={fx.longReverb.wet} min={0} max={1} step={0.01} rest={DEFAULT_FX.longReverb.wet}
+                    onChange={(v) => patch("longReverb", { wet: v })} />
+                  <Slider label="damp" value={fx.longReverb.damp} min={0} max={0.95} step={0.01} rest={DEFAULT_FX.longReverb.damp}
+                    onChange={(v) => patch("longReverb", { damp: v })} />
+                </FxModule>
+              </FxGroup>
+            </div>
+
+            <div className="fx-footer">
+              <div className="macro-row">
+                <div className="macro-head">
+                  <HoverHelp text={FX_HELP.chaos}>
+                    <span>Chaos multiplier</span>
+                  </HoverHelp>
+                  <NumberField
+                    value={chaos}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    digits={2}
+                    onChange={setChaos}
+                    ariaLabel="Chaos multiplier"
+                  />
+                </div>
+                <div className="slider-track">
+                  <button
+                    type="button"
+                    className="rest-mark"
+                    data-label="0.00"
+                    style={{ left: "0%" }}
+                    title="Restore default: 0.00"
+                    aria-label="Restore Chaos multiplier default 0.00"
+                    onClick={() => setChaos(0)}
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={chaos}
+                    onChange={(e) => setChaos(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="macro-actions">
+                <button type="button" className="danger" onClick={onResetClean}>Clear effects</button>
+              </div>
+            </div>
+          </aside>
+        );
+      }
+
+      function buildWorkletFx(fx, chaos, duration, cutSeed) {
+        const wow = fx.wowFlutter;
+        const pt = fx.pitchTimeDecouple;
+        const loop = fx.loopFragment;
+        const glitch = fx.glitchDegrade;
+        const rev = fx.reverse;
+        const collage = fx.layeredCollage;
+        const band = fx.bandIsolation;
+        const freeze = fx.spectralFreeze;
+        const lpf = fx.modulatedLowpass;
+        const verb = fx.longReverb;
+        const cutUp = loop.enabled && isCutUpMode(loop.mode);
+        const looping = loop.enabled && !cutUp;
+
+        const layers = [];
+        if (collage.enabled) {
+          const defs = [
+            { delaySec: collage.layer1Delay, speedFactor: collage.layer1Speed, gain: collage.layer1Gain },
+            { delaySec: collage.layer2Delay, speedFactor: collage.layer2Speed, gain: collage.layer2Gain },
+            { delaySec: collage.layer3Delay, speedFactor: collage.layer3Speed, gain: collage.layer3Gain },
+            { delaySec: collage.layer3Delay * 1.4, speedFactor: 0.97, gain: collage.layer3Gain * 0.7 },
+          ];
+          for (let i = 0; i < collage.layerCount - 1; i += 1) layers.push(defs[i]);
+        }
+
+        const map = cutUp
+          ? buildCutMap(duration, loop.durationSec, loop.mode, cutSeed)
+          : [];
+
+        const speedFactor = scaleWithChaos(
+          clamp((pt.speedPercent ?? 100) / 100, 0.1, 4),
+          chaos,
+          "speed"
+        );
+
+        return {
+          wowFlutter: {
+            enabled: wow.enabled,
+            depth: scaleWithChaos(wow.depth, chaos, "depth"),
+            rateHz: scaleWithChaos(wow.rateHz, chaos, "rate"),
+            flutterDepth: scaleWithChaos(wow.flutterDepth, chaos, "depth"),
+            flutterRateHz: scaleWithChaos(wow.flutterRateHz, chaos, "rate"),
+          },
+          pitchTime: {
+            enabled: pt.enabled,
+            speedFactor,
+            pitchSemitones: scaleWithChaos(pt.pitchSemitones, chaos, "semitone"),
+          },
+          loop: {
+            enabled: looping,
+            startSec: loop.startSec,
+            durationSec: loop.durationSec,
+            driftMode: loop.mode,
+          },
+          cutUp: {
+            enabled: cutUp,
+            map,
+            xfadeSec: 0.012,
+            glitchClicks: loop.glitchClicks,
+          },
+          glitch: {
+            enabled: glitch.enabled,
+            intensity: scaleWithChaos(glitch.intensity, chaos, "intensity"),
+            triggerMode: glitch.triggerMode,
+          },
+          reverse: {
+            enabled: rev.enabled,
+            scope: rev.scope,
+            segmentStart: rev.segmentStart,
+            segmentEnd: Math.max(rev.segmentStart + 0.05, rev.segmentEnd),
+          },
+          // #region agent log
+          __dbgBuildReverse: {
+            enabled: rev.enabled,
+            scope: rev.scope,
+            segmentStart: rev.segmentStart,
+            segmentEnd: Math.max(rev.segmentStart + 0.05, rev.segmentEnd),
+            rawEnd: rev.segmentEnd,
+          },
+          // #endregion
+          collage: {
+            enabled: collage.enabled,
+            layers,
+          },
+          bandIsolation: {
+            enabled: band.enabled,
+            keep: band.keep,
+            highpassHz: band.highpassHz,
+            lowpassHz: band.lowpassHz,
+            transientSoft: scaleWithChaos(band.transientSoft, chaos, "intensity"),
+          },
+          spectralFreeze: {
+            enabled: freeze.enabled,
+            sliceMs: freeze.sliceMs,
+            holdSec: freeze.holdSec,
+            crossfadeSec: freeze.crossfadeSec,
+            wet: freeze.wet,
+          },
+          modulatedLowpass: {
+            enabled: lpf.enabled,
+            cutoffHz: lpf.cutoffHz,
+            lfoPeriodSec: lpf.lfoPeriodSec,
+            lfoDepth: scaleWithChaos(lpf.lfoDepth, chaos, "intensity"),
+            resonance: lpf.resonance,
+          },
+          longReverb: {
+            enabled: verb.enabled,
+            decaySec: verb.decaySec * (1 + chaos * 0.6),
+            wet: clamp(verb.wet * (1 + chaos * 0.35), 0, 1),
+            damp: verb.damp,
+          },
+        };
+      }
+
+      function Player({ track, onReset }) {
+        const canvasRef = useRef(null);
+        const deckRef = useRef(null);
+        const positionRef = useRef(0);
+        const playingRef = useRef(false);
+        const scrubbingRef = useRef(false);
+        const gestureRef = useRef(null);
+        const ignoreNextClickRef = useRef(false);
+        const rafRef = useRef(0);
+        const fxRef = useRef(DEFAULT_FX);
+        const chaosRef = useRef(0);
+        const cutSeedRef = useRef(1);
+        const stochasticMemoryRef = useRef({});
+
+        const [playing, setPlaying] = useState(false);
+        const [scrubbing, setScrubbing] = useState(false);
+        const [position, setPosition] = useState(0);
+        const [volume, setVolume] = useState(0.8);
+        const [fx, setFx] = useState(() => structuredClone(DEFAULT_FX));
+        const [chaos, setChaos] = useState(0);
+        const [hiddenGroups, setHiddenGroups] = useState([]);
+        const [collapsedModules, setCollapsedModules] = useState([]);
+        const [downloading, setDownloading] = useState(false);
+        const [processedWaveform, setProcessedWaveform] = useState(null);
+        const processedWaveformRef = useRef(null);
+        const previewGenRef = useRef(0);
+
+        const duration = track.buffer.duration;
+        const anyFxEnabled = useMemo(
+          () => Object.values(fx).some((m) => m && m.enabled),
+          [fx]
+        );
+
+        useEffect(() => { fxRef.current = fx; }, [fx]);
+        useEffect(() => { chaosRef.current = chaos; }, [chaos]);
+        useEffect(() => { processedWaveformRef.current = processedWaveform; }, [processedWaveform]);
+
+        useEffect(() => {
+          if (!anyFxEnabled) {
+            previewGenRef.current += 1;
+            setProcessedWaveform(null);
+            return undefined;
+          }
+          const gen = ++previewGenRef.current;
+          const timer = setTimeout(async () => {
+            const center = positionRef.current;
+            const half = 10;
+            const fromSec = clamp(center - half, 0, duration);
+            const toSec = clamp(center + half, 0, duration);
+            const lengthSec = Math.max(0.5, toSec - fromSec);
+
+            try {
+              const near = await renderModifiedTrack(
+                track.buffer,
+                fxRef.current,
+                chaosRef.current,
+                cutSeedRef.current,
+                { fromSec, lengthSec }
+              );
+              if (gen !== previewGenRef.current) return;
+              const nearStems = await makeWaveformStems(near.buffer, () => {});
+              if (gen !== previewGenRef.current) return;
+              setProcessedWaveform({
+                stems: nearStems,
+                fromSec: near.fromSec,
+                lengthSec: near.lengthSec,
+                full: false,
+              });
+            } catch (_err) {
+              if (gen === previewGenRef.current) setProcessedWaveform(null);
+            }
+
+            try {
+              const fullBuf = await renderModifiedTrack(
+                track.buffer,
+                fxRef.current,
+                chaosRef.current,
+                cutSeedRef.current
+              );
+              if (gen !== previewGenRef.current) return;
+              const fullStems = await makeWaveformStems(fullBuf, () => {});
+              if (gen !== previewGenRef.current) return;
+              setProcessedWaveform({
+                stems: fullStems,
+                fromSec: 0,
+                lengthSec: fullBuf.duration,
+                full: true,
+              });
+            } catch (_err) {
+              /* keep near preview if full fails */
+            }
+          }, 250);
+          return () => clearTimeout(timer);
+        }, [fx, chaos, track, anyFxEnabled, duration]);
+
+        const pushFx = useCallback(() => {
+          const payload = buildWorkletFx(
+            fxRef.current,
+            chaosRef.current,
+            duration,
+            cutSeedRef.current
+          );
+          // #region agent log
+          if (payload.__dbgBuildReverse) {
+            fetch('http://127.0.0.1:7338/ingest/a66f5715-75c3-4a47-90c2-76a9fcfaae2b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc125d'},body:JSON.stringify({sessionId:'bc125d',runId:'pre-fix',hypothesisId:'H2-H3',location:'weird-player.html:pushFx',message:'buildWorkletFx reverse payload',data:payload.__dbgBuildReverse,timestamp:Date.now()})}).catch(()=>{});
+            delete payload.__dbgBuildReverse;
+          }
+          // #endregion
+          track.engine.node.port.postMessage({ type: "fx", fx: payload });
+        }, [duration, track]);
+
+        const cutKey = `${fx.loopFragment.enabled}|${fx.loopFragment.durationSec}|${fx.loopFragment.mode}`;
+        useEffect(() => {
+          if (fx.loopFragment.enabled && isCutUpMode(fx.loopFragment.mode)) {
+            cutSeedRef.current = Date.now();
+          }
+        }, [cutKey]);
+
+        useEffect(() => {
+          pushFx();
+        }, [fx, chaos, pushFx]);
+
+        const seek = useCallback((seconds) => {
+          const pos = clamp(seconds, 0, duration);
+          positionRef.current = pos;
+          setPosition(pos);
+          track.engine.node.port.postMessage({
+            type: "seek",
+            position: pos * track.buffer.sampleRate,
+            virtualTime: pos,
+          });
+        }, [duration, track]);
+
+        const play = useCallback(async () => {
+          await track.context.resume();
+          const atEnd = positionRef.current >= duration - 0.02;
+          if (atEnd) seek(0);
+          playingRef.current = true;
+          setPlaying(true);
+          track.engine.node.port.postMessage({
+            type: "play",
+            position: positionRef.current * track.buffer.sampleRate,
+          });
+          pushFx();
+        }, [duration, pushFx, seek, track]);
+
+        const pause = useCallback(() => {
+          playingRef.current = false;
+          setPlaying(false);
+          track.engine.node.port.postMessage({
+            type: "pause",
+            position: positionRef.current * track.buffer.sampleRate,
+          });
+        }, [track]);
+
+        const togglePlay = async () => {
+          if (playingRef.current) pause();
+          else await play();
+        };
+
+        useEffect(() => {
+          const onMsg = (event) => {
+            const data = event.data;
+            if (data.type === "pos" && !scrubbingRef.current) {
+              const sec = data.position / track.buffer.sampleRate;
+              positionRef.current = clamp(sec, 0, duration);
+              setPosition((shown) =>
+                Math.abs(shown - positionRef.current) > 0.04 ? positionRef.current : shown
+              );
+            } else if (data.type === "ended") {
+              playingRef.current = false;
+              setPlaying(false);
+              positionRef.current = duration;
+              setPosition(duration);
+            }
+            // #region agent log
+            else if (data.type === "dbg-reverse-fx") {
+              fetch('http://127.0.0.1:7338/ingest/a66f5715-75c3-4a47-90c2-76a9fcfaae2b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc125d'},body:JSON.stringify({sessionId:'bc125d',runId:'pre-fix',hypothesisId:'H2',location:'weird-player.html:worklet-applyFx',message:'worklet received reverse fx',data:data,timestamp:Date.now()})}).catch(()=>{});
+            } else if (data.type === "dbg-reverse-rt") {
+              fetch('http://127.0.0.1:7338/ingest/a66f5715-75c3-4a47-90c2-76a9fcfaae2b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'bc125d'},body:JSON.stringify({sessionId:'bc125d',runId:'pre-fix',hypothesisId:'H1-H4-H5',location:'weird-player.html:worklet-process',message:'reverse segment runtime sample',data:data,timestamp:Date.now()})}).catch(()=>{});
+            }
+            // #endregion
+          };
+          track.engine.node.port.addEventListener("message", onMsg);
+          track.engine.node.port.start?.();
+          return () => track.engine.node.port.removeEventListener("message", onMsg);
+        }, [duration, track]);
+
+        // Stochastic scheduler — drives modules 1–7
+        useEffect(() => {
+          if (!fx.stochasticBehavior.enabled) return undefined;
+          const beatMs = 60000 / Math.max(40, fx.stochasticBehavior.bpm);
+          const targets = [
+            { effectName: "wowFlutter", param: "depth", range: [0.005, 0.06] },
+            { effectName: "wowFlutter", param: "rateHz", range: [0.3, 3] },
+            { effectName: "pitchTimeDecouple", param: "speedPercent", range: [60, 150] },
+            { effectName: "pitchTimeDecouple", param: "pitchSemitones", range: [-7, 7] },
+            { effectName: "glitchDegrade", param: "intensity", range: [0.15, 0.9] },
+            { effectName: "loopFragment", param: "durationSec", range: [0.08, 0.9] },
+            {
+              effectName: "loopFragment",
+              param: "mode",
+              choices: ["fixed", "sliding", "random", "shuffle", "reverse-order", "rule-based"],
+            },
+            { effectName: "reverse", param: "enabled", range: [0, 1] },
+          ];
+          const id = window.setInterval(() => {
+            if (Math.random() > fx.stochasticBehavior.probability) return;
+            const rule = targets[Math.floor(Math.random() * targets.length)];
+            setFx((prev) => {
+              const next = { ...prev, [rule.effectName]: { ...prev[rule.effectName] } };
+              if (rule.param === "enabled") {
+                next[rule.effectName].enabled = Math.random() > 0.45;
+              } else if (rule.choices) {
+                next[rule.effectName].enabled = true;
+                next[rule.effectName][rule.param] =
+                  rule.choices[Math.floor(Math.random() * rule.choices.length)];
+                if (
+                  rule.effectName === "loopFragment" &&
+                  isCutUpMode(next.loopFragment.mode)
+                ) {
+                  cutSeedRef.current = Date.now();
+                }
+              } else {
+                next[rule.effectName].enabled = true;
+                const [lo, hi] = rule.range;
+                next[rule.effectName][rule.param] = lerp(lo, hi, Math.random());
+              }
+              stochasticMemoryRef.current[rule.effectName] = Date.now();
+              return next;
+            });
+          }, beatMs);
+          return () => clearInterval(id);
+        }, [fx.stochasticBehavior.enabled, fx.stochasticBehavior.bpm, fx.stochasticBehavior.probability]);
+
+        const changeVolume = (event) => {
+          const nextVolume = Number(event.target.value);
+          setVolume(nextVolume);
+          track.masterGain.gain.setTargetAtTime(
+            nextVolume * nextVolume,
+            track.context.currentTime,
+            0.015
+          );
+        };
+
+        const resetClean = () => {
+          setChaos(0);
+          setFx(structuredClone(DEFAULT_FX));
+          setHiddenGroups([]);
+          setCollapsedModules([]);
+          cutSeedRef.current = 1;
+        };
+
+        const jumpToStart = async (event) => {
+          event.stopPropagation();
+          await track.context.resume();
+          const wasPlaying = playingRef.current;
+          seek(0);
+          if (wasPlaying) await play();
+        };
+
+        const downloadModified = async (event) => {
+          event.stopPropagation();
+          if (downloading) return;
+          setDownloading(true);
+          try {
+            const rendered = await renderModifiedTrack(
+              track.buffer,
+              fxRef.current,
+              chaosRef.current,
+              cutSeedRef.current
+            );
+            const wav = encodeWav(rendered);
+            const safeName = (track.name || "track").replace(/[^\w\-]+/g, "_");
+            triggerDownload(wav, `${safeName}-modified.wav`);
+          } catch (error) {
+            console.error(error);
+            window.alert(
+              error && error.message
+                ? error.message
+                : "Could not render the modified track."
+            );
+          } finally {
+            setDownloading(false);
+          }
+        };
+
+        const beginScrub = async (event) => {
+          event.preventDefault();
+          await track.context.resume();
+          deckRef.current.setPointerCapture(event.pointerId);
+          const startPosition = positionRef.current;
+          const wasPlaying = playingRef.current;
+          if (wasPlaying) pause();
+          scrubbingRef.current = true;
+          setScrubbing(true);
+          gestureRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startPosition,
+            wasPlaying,
+            moved: false,
+          };
+        };
+
+        const moveScrub = (event) => {
+          const gesture = gestureRef.current;
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          const totalX = event.clientX - gesture.startX;
+          if (Math.abs(totalX) > 2) gesture.moved = true;
+          const nextPosition = clamp(
+            gesture.startPosition - totalX / PIXELS_PER_SECOND,
+            0,
+            duration
+          );
+          seek(nextPosition);
+        };
+
+        const endScrub = (event) => {
+          const gesture = gestureRef.current;
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          gestureRef.current = null;
+          scrubbingRef.current = false;
+          setScrubbing(false);
+          ignoreNextClickRef.current = event.type === "pointerup";
+          if (gesture.moved) {
+            if (gesture.wasPlaying) play();
+          } else if (!gesture.wasPlaying) {
+            play();
+          } else {
+            play();
+          }
+        };
+
+        const handlePlayerClick = (event) => {
+          if (ignoreNextClickRef.current) {
+            ignoreNextClickRef.current = false;
+            return;
+          }
+          if (event.target.closest("button, input, select, .fx-panel")) return;
+          togglePlay();
+        };
+
+        useEffect(() => {
+          const render = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+            if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+            }
+            const ctx = canvas.getContext("2d");
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const playPosition = positionRef.current;
+            const centerX = rect.width / 2;
+            const middle = rect.height / 2;
+            const fxNow = fxRef.current;
+            const cleanData = track.waveform;
+            const processedMeta = processedWaveformRef.current;
+            const processedStems = processedMeta?.stems || null;
+            const processedFrom = processedMeta?.fromSec ?? 0;
+            const processedLen = processedMeta?.lengthSec ?? 0;
+            const activeCount = Object.values(fxNow).filter((m) => m && m.enabled).length;
+            const hasFx = activeCount > 0;
+            const reverseFull =
+              fxNow.reverse?.enabled && fxNow.reverse.scope === "full-track";
+
+            drawFxRegionOverlays(
+              ctx,
+              fxNow,
+              duration,
+              playPosition,
+              centerX,
+              rect.height,
+              cutSeedRef.current
+            );
+
+            drawEchoTrails(
+              ctx,
+              cleanData,
+              fxNow,
+              playPosition,
+              centerX,
+              rect.height,
+              middle
+            );
+
+            const leftTime = playPosition - centerX / PIXELS_PER_SECOND;
+            const rightTime = playPosition + centerX / PIXELS_PER_SECOND;
+
+            const nowSec = performance.now() / 1000;
+            let wowJitter = 0;
+            if (fxNow.wowFlutter?.enabled) {
+              const depth = fxNow.wowFlutter.depth || 0;
+              const flutter = fxNow.wowFlutter.flutterDepth || 0;
+              wowJitter =
+                Math.sin(nowSec * (fxNow.wowFlutter.rateHz || 0.8) * Math.PI * 2) * depth * 40 +
+                Math.sin(nowSec * (fxNow.wowFlutter.flutterRateHz || 8) * Math.PI * 2) * flutter * 18;
+            }
+
+            let speedSkew = 1;
+            if (fxNow.pitchTimeDecouple?.enabled) {
+              const spd = clamp((fxNow.pitchTimeDecouple.speedPercent ?? 100) / 100, 0.1, 4);
+              speedSkew = 1 + (spd - 1) * 0.08;
+            }
+
+            const sampleAmp = (data, stemTime) => {
+              if (!data?.length) return 0;
+              let t = stemTime;
+              if (reverseFull) t = duration - stemTime;
+              const idx = clamp(Math.round(t / STEM_STEP_SECONDS), 0, data.length - 1);
+              return data[idx];
+            };
+
+            const processedAmpAt = (stemTime) => {
+              if (!processedStems?.length || processedLen <= 0) return null;
+              if (stemTime < processedFrom - STEM_STEP_SECONDS) return null;
+              if (stemTime > processedFrom + processedLen + STEM_STEP_SECONDS) return null;
+              const idx = Math.round((stemTime - processedFrom) / STEM_STEP_SECONDS);
+              if (idx < 0 || idx >= processedStems.length) return null;
+              return processedStems[idx];
+            };
+
+            const drawStems = (data, color, alpha, motion, mirror) => {
+              if (!data || !data.length) return;
+              ctx.fillStyle = color;
+              ctx.globalAlpha = alpha;
+              const firstStem = Math.max(0, Math.floor(leftTime / STEM_STEP_SECONDS) - 1);
+              const lastStem = Math.min(
+                Math.ceil(duration / STEM_STEP_SECONDS),
+                Math.ceil(rightTime / STEM_STEP_SECONDS) + 1
+              );
+              const maxIdx = data.length - 1;
+              for (let stem = firstStem; stem <= lastStem; stem += 1) {
+                const stemTime = stem * STEM_STEP_SECONDS;
+                let x = centerX + (stemTime - playPosition) * PIXELS_PER_SECOND * speedSkew;
+                if (motion) x += wowJitter;
+                let amp = mirror ? sampleAmp(data, stemTime) : data[clamp(stem, 0, maxIdx)];
+                if (motion && fxNow.glitchDegrade?.enabled) {
+                  const intensity = fxNow.glitchDegrade.intensity || 0;
+                  const near = Math.abs(stemTime - playPosition) < 0.45;
+                  if (near && intensity > 0.02) {
+                    const spark = Math.sin(stem * 12.9898 + nowSec * 17.3) * 0.5 + 0.5;
+                    if (spark > 1 - intensity * 0.55) amp *= 0.15 + spark;
+                    else if (spark < intensity * 0.2) amp *= 0.25;
+                  }
+                }
+                const stemHeight = Math.max(16, amp * rect.height * 0.96);
+                const y = middle - stemHeight / 2;
+                ctx.beginPath();
+                ctx.roundRect(x, y, STEM_WIDTH, stemHeight, STEM_WIDTH / 2);
+                ctx.fill();
+              }
+              ctx.globalAlpha = 1;
+            };
+
+            const drawProcessedStems = (color, alpha, motion) => {
+              if (!processedStems?.length) return;
+              ctx.fillStyle = color;
+              ctx.globalAlpha = alpha;
+              const firstStem = Math.max(0, Math.floor(leftTime / STEM_STEP_SECONDS) - 1);
+              const lastStem = Math.min(
+                Math.ceil(duration / STEM_STEP_SECONDS),
+                Math.ceil(rightTime / STEM_STEP_SECONDS) + 1
+              );
+              for (let stem = firstStem; stem <= lastStem; stem += 1) {
+                const stemTime = stem * STEM_STEP_SECONDS;
+                let amp = processedAmpAt(stemTime);
+                if (amp == null) continue;
+                if (reverseFull && !processedMeta?.full) {
+                  amp = sampleAmp(cleanData, stemTime);
+                }
+                let x = centerX + (stemTime - playPosition) * PIXELS_PER_SECOND * speedSkew;
+                if (motion) x += wowJitter;
+                if (motion && fxNow.glitchDegrade?.enabled) {
+                  const intensity = fxNow.glitchDegrade.intensity || 0;
+                  const near = Math.abs(stemTime - playPosition) < 0.45;
+                  if (near && intensity > 0.02) {
+                    const spark = Math.sin(stem * 12.9898 + nowSec * 17.3) * 0.5 + 0.5;
+                    if (spark > 1 - intensity * 0.55) amp *= 0.15 + spark;
+                    else if (spark < intensity * 0.2) amp *= 0.25;
+                  }
+                }
+                const stemHeight = Math.max(16, amp * rect.height * 0.96);
+                const y = middle - stemHeight / 2;
+                ctx.beginPath();
+                ctx.roundRect(x, y, STEM_WIDTH, stemHeight, STEM_WIDTH / 2);
+                ctx.fill();
+              }
+              ctx.globalAlpha = 1;
+            };
+
+            // Full-track reverse: keep shaped clean stems (mirrored). Processed alone was flat before seek fix.
+            const preferMirroredClean = reverseFull;
+            if (hasFx) {
+              drawStems(cleanData, "#c9c9c5", scrubbingRef.current ? 0.22 : 0.16, false, preferMirroredClean);
+              if (preferMirroredClean && (!processedStems || activeCount === 1)) {
+                drawStems(cleanData, "#e8c27a", scrubbingRef.current ? 0.95 : 0.78, true, true);
+              } else if (processedStems) {
+                drawProcessedStems("#e8c27a", scrubbingRef.current ? 0.95 : 0.78, true);
+              } else {
+                drawStems(cleanData, "#e8c27a", scrubbingRef.current ? 0.95 : 0.78, true, preferMirroredClean);
+              }
+            } else {
+              drawStems(cleanData, "#c9c9c5", scrubbingRef.current ? 0.95 : 0.72, false, false);
+            }
+
+            rafRef.current = requestAnimationFrame(render);
+          };
+          rafRef.current = requestAnimationFrame(render);
+          return () => cancelAnimationFrame(rafRef.current);
+        }, [track, duration]);
+
+        useEffect(() => () => {
+          track.engine.node.port.postMessage({ type: "pause" });
+          track.engine.node.disconnect();
+        }, [track]);
+
+        const reverbWet = clamp(fx.longReverb?.wet || 0, 0, 1);
+        const reverbLive =
+          playing && !!fx.longReverb?.enabled && reverbWet > 0.02;
+        const reverbSpread = clamp((fx.longReverb?.decaySec || 18) / 45, 0.25, 1);
+
+        return (
+          <div className="shell">
+            <main
+              className={`player${reverbLive ? " reverb-live" : ""}`}
+              style={{
+                ["--reverb-wet"]: reverbWet,
+                ["--reverb-spread"]: reverbSpread,
+              }}
+              onClick={handlePlayerClick}
+            >
+              <div className="playhead" aria-hidden="true" />
+              <div className="player-top">
+                <button
+                  className="track-switch"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onReset();
+                  }}
+                >
+                  <span className="track-label">{track.name}</span>
+                  <span className="change-label">Change track</span>
+                </button>
+                <button
+                  type="button"
+                  className="download-button"
+                  onClick={downloadModified}
+                  disabled={downloading}
+                  title="Render current effects to a WAV file"
+                >
+                  {downloading ? "Rendering…" : "Download"}
+                </button>
+              </div>
+
+              <section
+                ref={deckRef}
+                className={`deck ${scrubbing ? "scrubbing" : ""}`}
+                onPointerDown={beginScrub}
+                onPointerMove={moveScrub}
+                onPointerUp={endScrub}
+                onPointerCancel={endScrub}
+                aria-label="Drag horizontally to scrub the audio"
+              >
+                <canvas ref={canvasRef} />
+              </section>
+
+              <footer className="controls">
+                <div className="transport">
+                  <button
+                    type="button"
+                    className="restart-button"
+                    onClick={jumpToStart}
+                    aria-label="Back to start"
+                    title="Back to start"
+                  >
+                    <span className="restart-icon">⏮</span>
+                  </button>
+                  <button
+                    className="play-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      togglePlay();
+                    }}
+                    aria-label={playing ? "Pause" : "Play"}
+                  >
+                    {playing
+                      ? <span className="pause-icon">Ⅱ</span>
+                      : <span className="play-icon">▶</span>}
+                  </button>
+                </div>
+                <div className="time">
+                  <TimeField
+                    seconds={position}
+                    duration={duration}
+                    onSeek={async (next) => {
+                      await track.context.resume();
+                      const wasPlaying = playingRef.current;
+                      if (wasPlaying) pause();
+                      seek(next);
+                      if (wasPlaying) await play();
+                    }}
+                  />
+                  <span className="time-total">{formatTime(duration)}</span>
+                </div>
+                <div className="right-controls">
+                  <label className="volume-control" onClick={(event) => event.stopPropagation()}>
+                    <span>Volume</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={volume}
+                      onChange={changeVolume}
+                      aria-label="Volume"
+                    />
+                  </label>
+                </div>
+              </footer>
+            </main>
+
+            <EffectsPanel
+              fx={fx}
+              setFx={setFx}
+              chaos={chaos}
+              setChaos={setChaos}
+              onResetClean={resetClean}
+              duration={duration}
+              hiddenGroups={hiddenGroups}
+              setHiddenGroups={setHiddenGroups}
+              collapsedModules={collapsedModules}
+              setCollapsedModules={setCollapsedModules}
+            />
+          </div>
+        );
+      }
+
+      function App() {
+        const [track, setTrack] = useState(null);
+
+        const loadFile = async (file, onProgress) => {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) throw new Error("Web Audio API is not supported in this browser.");
+          const context = new AudioContextClass();
+          await context.resume();
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            onProgress(5);
+            let buffer;
+            try {
+              buffer = await decodeAudioBuffer(context, arrayBuffer);
+            } catch (decodeErr) {
+              throw new Error(
+                "Browser could not decode this file (" +
+                  (decodeErr && decodeErr.message ? decodeErr.message : "decode failed") +
+                  "). Try WAV or MP3."
+              );
+            }
+            onProgress(15);
+            const waveform = await makeWaveformStems(buffer, onProgress);
+            onProgress(88);
+            const masterGain = context.createGain();
+            masterGain.gain.value = 0.8 * 0.8;
+            masterGain.connect(context.destination);
+            const engine = await createWeirdEngine(context, buffer, masterGain);
+            onProgress(98);
+            setTrack({
+              name: file.name.replace(/\.[^/.]+$/, "") || "Untitled",
+              buffer,
+              context,
+              waveform,
+              engine,
+              masterGain,
+            });
+          } catch (error) {
+            try { await context.close(); } catch {}
+            throw error;
+          }
+        };
+
+        const reset = async () => {
+          if (track) {
+            try { track.engine.node.disconnect(); } catch {}
+            await track.context.close();
+          }
+          setTrack(null);
+        };
+
+        return track
+          ? <Player track={track} onReset={reset} />
+          : <DropScreen onFile={loadFile} />;
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

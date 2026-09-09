@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zero Player</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600&display=swap");
+
+      :root {
+        color-scheme: dark;
+        font-family: "Roboto Mono", monospace;
+        background: #0d0d0c;
+        color: #f1efe7;
+        font-synthesis: none;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+
+      body {
+        min-height: 100vh;
+        overflow: hidden;
+        background: #0d0d0c;
+      }
+
+      button, input { font: inherit; }
+
+      .drop-screen {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        cursor: pointer;
+        position: relative;
+        isolation: isolate;
+      }
+
+      .drop-content {
+        width: 100%;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .drop-content h1 {
+        margin: 0;
+        width: 100%;
+        font-size: clamp(34px, 5.3vw, 76px);
+        line-height: 1.02;
+        font-weight: 300;
+        letter-spacing: -.055em;
+        white-space: nowrap;
+        text-align: center;
+      }
+
+      .drop-content p {
+        margin: 22px 0 0;
+        color: rgba(241, 239, 231, .46);
+        font: 300 12px/1.6 "Roboto Mono", monospace;
+        letter-spacing: .04em;
+      }
+
+      .error { color: #ff846f !important; }
+
+      .player {
+        width: 100vw;
+        height: 100vh;
+        min-height: 560px;
+        display: flex;
+        flex-direction: column;
+        padding: clamp(24px, 4vw, 58px);
+        position: relative;
+      }
+
+      .deck {
+        flex: 1;
+        min-height: 280px;
+        margin: clamp(38px, 7vh, 76px) calc(clamp(24px, 4vw, 58px) * -1) 0;
+        position: relative;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+
+      .deck.scrubbing { cursor: grabbing; }
+      .deck canvas { width: 100%; height: 100%; display: block; }
+
+      .playhead {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 1px;
+        z-index: 2;
+        pointer-events: none;
+        background: rgba(241, 239, 231, .64);
+        box-shadow: 0 0 18px rgba(255, 255, 255, .1);
+      }
+
+      .controls {
+        height: 86px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: end;
+        padding-top: 25px;
+      }
+
+      .time, .hint {
+        color: rgba(241, 239, 231, .4);
+        font: 400 11px/1 "Roboto Mono", monospace;
+        letter-spacing: .08em;
+      }
+
+      .time {
+        position: absolute;
+        top: calc(100% + 13px);
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 18px;
+        white-space: nowrap;
+      }
+
+      .right-controls {
+        grid-column: 3;
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .hint { text-transform: uppercase; font-size: 9px; }
+
+      .volume-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(241, 239, 231, .4);
+        font: 400 9px/1 "Roboto Mono", monospace;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+
+      .volume-control input {
+        width: 92px;
+        height: 3px;
+        border-radius: 2px;
+        appearance: none;
+        background: rgba(241, 239, 231, .2);
+        cursor: pointer;
+      }
+
+      .volume-control input::-webkit-slider-thumb {
+        width: 11px;
+        height: 11px;
+        border: 0;
+        border-radius: 50%;
+        appearance: none;
+        background: #d2d2ce;
+      }
+
+      .volume-control input::-moz-range-thumb {
+        width: 11px;
+        height: 11px;
+        border: 0;
+        border-radius: 50%;
+        background: #d2d2ce;
+      }
+
+      .track-switch {
+        grid-column: 1;
+        justify-self: start;
+        max-width: 36vw;
+        padding: 0;
+        border: 0;
+        color: rgba(241, 239, 231, .72);
+        background: transparent;
+        cursor: pointer;
+        display: grid;
+        font: 400 11px/1 "Roboto Mono", monospace;
+        letter-spacing: .06em;
+        text-align: left;
+      }
+
+      .track-switch span {
+        grid-area: 1 / 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: opacity .16s;
+      }
+
+      .track-switch .change-label {
+        opacity: 0;
+        text-transform: uppercase;
+      }
+
+      .track-switch:hover .track-label { opacity: 0; }
+      .track-switch:hover .change-label { opacity: 1; }
+
+      .play-button {
+        grid-column: 2;
+        position: relative;
+        z-index: 3;
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(241, 239, 231, .28);
+        border-radius: 50%;
+        background: #f1efe7;
+        color: #0d0d0c;
+        cursor: pointer;
+        transition: transform .2s, background .2s;
+      }
+
+      .play-button:hover { transform: scale(1.04); }
+      .play-icon { font-size: 17px; transform: translateX(1px); }
+      .pause-icon { font-size: 13px; letter-spacing: 2px; transform: translateX(1px); }
+
+      @media (max-width: 640px) {
+        .player { padding: 28px 22px 20px; }
+        .deck { margin-left: -22px; margin-right: -22px; }
+        .hint, .volume-control span { display: none; }
+        .right-controls { gap: 0; }
+        .volume-control input { width: 72px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useCallback, useEffect, useRef, useState } = React;
+      const PIXELS_PER_SECOND = 115;
+      const STEM_WIDTH = 4;
+      const STEM_GAP = 4;
+      const STEM_STEP_SECONDS = (STEM_WIDTH + STEM_GAP) / PIXELS_PER_SECOND;
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      function formatTime(seconds) {
+        if (!Number.isFinite(seconds)) return "00:00.0";
+        const value = Math.max(0, seconds);
+        const mins = Math.floor(value / 60);
+        const secs = Math.floor(value % 60);
+        const tenths = Math.floor((value % 1) * 10);
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${tenths}`;
+      }
+
+      async function makeWaveformStems(buffer, onProgress) {
+        const channels = Array.from(
+          { length: buffer.numberOfChannels },
+          (_, index) => buffer.getChannelData(index)
+        );
+        const stemCount = Math.ceil(buffer.duration / STEM_STEP_SECONDS);
+        const amplitudes = new Float32Array(stemCount);
+        const samplesPerStem = Math.max(1, Math.floor(STEM_STEP_SECONDS * buffer.sampleRate));
+        const stride = Math.max(1, Math.floor(samplesPerStem / 96));
+
+        for (let stem = 0; stem < stemCount; stem += 1) {
+          const from = stem * samplesPerStem;
+          const to = Math.min(buffer.length, from + samplesPerStem);
+          let peak = 0;
+          let sum = 0;
+          let count = 0;
+
+          for (let sample = from; sample < to; sample += stride) {
+            let mono = 0;
+            for (const channel of channels) mono += Math.abs(channel[sample] || 0);
+            mono /= channels.length;
+            peak = Math.max(peak, mono);
+            sum += mono * mono;
+            count += 1;
+          }
+
+          const rms = Math.sqrt(sum / Math.max(1, count));
+          amplitudes[stem] = peak * 0.65 + rms * 0.35;
+
+          if (stem % 240 === 0) {
+            onProgress(15 + Math.round((stem / stemCount) * 70));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+
+        let max = 0.0001;
+        for (let i = 0; i < stemCount; i += 1) max = Math.max(max, amplitudes[i]);
+
+        const normalized = new Float32Array(stemCount);
+        for (let i = 0; i < stemCount; i += 1) {
+          const left = amplitudes[Math.max(0, i - 1)];
+          const center = amplitudes[i];
+          const right = amplitudes[Math.min(stemCount - 1, i + 1)];
+          const smoothed = (left + center * 2 + right) / 4;
+          normalized[i] = clamp(Math.pow(smoothed / max, 0.72), 0.03, 1);
+        }
+        return normalized;
+      }
+
+      async function createScrubNode(context, buffer, destination) {
+        const processorSource = `
+          class ScrubProcessor extends AudioWorkletProcessor {
+            constructor() {
+              super();
+              this.channels = [];
+              this.length = 0;
+              this.position = 0;
+              this.speed = 0;
+              this.targetSpeed = 0;
+              this.active = false;
+              this.gain = 0;
+              this.port.onmessage = ({ data }) => {
+                if (data.type === "init") {
+                  this.channels = data.channels;
+                  this.length = this.channels[0]?.length || 0;
+                } else if (data.type === "start") {
+                  this.position = data.position;
+                  this.speed = 0;
+                  this.targetSpeed = 0;
+                  this.active = true;
+                } else if (data.type === "speed") {
+                  this.targetSpeed = data.speed;
+                } else if (data.type === "stop") {
+                  this.active = false;
+                  this.targetSpeed = 0;
+                  this.speed = 0;
+                }
+              };
+            }
+
+            process(inputs, outputs) {
+              const output = outputs[0];
+              const frameCount = output[0].length;
+              for (let frame = 0; frame < frameCount; frame += 1) {
+                this.speed += (this.targetSpeed - this.speed) * 0.12;
+                const moving = this.active && Math.abs(this.targetSpeed) > 0.015;
+                const targetGain = moving ? 1 : 0;
+                this.gain += (targetGain - this.gain) * (moving ? 0.045 : 0.16);
+
+                const safePosition = Math.max(0, Math.min(this.length - 2, this.position));
+                const index = Math.floor(safePosition);
+                const fraction = safePosition - index;
+                for (let channel = 0; channel < output.length; channel += 1) {
+                  const source = this.channels[Math.min(channel, this.channels.length - 1)];
+                  if (!source || this.length < 2) {
+                    output[channel][frame] = 0;
+                    continue;
+                  }
+                  const first = source[index] || 0;
+                  const second = source[index + 1] || 0;
+                  output[channel][frame] = (first + (second - first) * fraction) * this.gain;
+                }
+
+                if (moving) {
+                  this.position = Math.max(
+                    0,
+                    Math.min(this.length - 2, this.position + this.speed)
+                  );
+                }
+              }
+              return true;
+            }
+          }
+          registerProcessor("scrub-processor", ScrubProcessor);
+        `;
+
+        const moduleUrl = URL.createObjectURL(
+          new Blob([processorSource], { type: "text/javascript" })
+        );
+        try {
+          await context.audioWorklet.addModule(moduleUrl);
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
+
+        const node = new AudioWorkletNode(context, "scrub-processor", {
+          outputChannelCount: [Math.min(2, Math.max(1, buffer.numberOfChannels))],
+        });
+        const channels = Array.from(
+          { length: buffer.numberOfChannels },
+          (_, index) => new Float32Array(buffer.getChannelData(index))
+        );
+        node.port.postMessage(
+          { type: "init", channels },
+          channels.map((channel) => channel.buffer)
+        );
+        node.connect(destination);
+        return node;
+      }
+
+      function DropScreen({ onFile }) {
+        const inputRef = useRef(null);
+        const [dragging, setDragging] = useState(false);
+        const [error, setError] = useState("");
+        const [loading, setLoading] = useState(false);
+        const [progress, setProgress] = useState(0);
+
+        const select = async (file) => {
+          if (!file) return;
+          if (!file.type.startsWith("audio/")) {
+            setError("That file does not look like audio.");
+            return;
+          }
+          setError("");
+          setLoading(true);
+          setProgress(1);
+          try {
+            await onFile(file, setProgress);
+          } catch (reason) {
+            console.error(reason);
+            setError("This audio file could not be decoded.");
+            setLoading(false);
+            setProgress(0);
+          }
+        };
+
+        return (
+          <main
+            className={`drop-screen ${dragging ? "dragging" : ""}`}
+            onClick={() => !loading && inputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              select(event.dataTransfer.files[0]);
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept="audio/*"
+              hidden
+              onChange={(event) => select(event.target.files[0])}
+            />
+            <div className="drop-content">
+              <h1>{loading ? `${progress}%` : "Drop audio here"}</h1>
+              <p className={error ? "error" : ""}>
+                {error || (loading ? "Analyzing locally in your browser" : "or tap anywhere to browse")}
+              </p>
+            </div>
+          </main>
+        );
+      }
+
+      function Player({ track, onReset }) {
+        const canvasRef = useRef(null);
+        const deckRef = useRef(null);
+        const sourceRef = useRef(null);
+        const sourceGainRef = useRef(null);
+        const startContextTimeRef = useRef(0);
+        const startOffsetRef = useRef(0);
+        const positionRef = useRef(0);
+        const playingRef = useRef(false);
+        const scrubbingRef = useRef(false);
+        const gestureRef = useRef(null);
+        const ignoreNextClickRef = useRef(false);
+        const rafRef = useRef(0);
+        const stopScrubTimerRef = useRef(0);
+        const [playing, setPlaying] = useState(false);
+        const [scrubbing, setScrubbing] = useState(false);
+        const [position, setPosition] = useState(0);
+        const [volume, setVolume] = useState(0.8);
+
+        const currentPosition = useCallback(() => {
+          if (playingRef.current && !scrubbingRef.current) {
+            return clamp(
+              startOffsetRef.current + (track.context.currentTime - startContextTimeRef.current),
+              0,
+              track.buffer.duration
+            );
+          }
+          return positionRef.current;
+        }, [track]);
+
+        const stopNormal = useCallback(() => {
+          if (sourceRef.current) {
+            sourceRef.current.onended = null;
+            try { sourceRef.current.stop(); } catch {}
+            sourceRef.current.disconnect();
+            sourceRef.current = null;
+          }
+          if (sourceGainRef.current) {
+            sourceGainRef.current.disconnect();
+            sourceGainRef.current = null;
+          }
+        }, []);
+
+        const pause = useCallback(() => {
+          const nextPosition = currentPosition();
+          positionRef.current = nextPosition;
+          playingRef.current = false;
+          setPlaying(false);
+          setPosition(nextPosition);
+          stopNormal();
+        }, [currentPosition, stopNormal]);
+
+        const playFrom = useCallback((offset, fade = true) => {
+          stopNormal();
+          const duration = track.buffer.duration;
+          const safeOffset = clamp(offset, 0, duration);
+          if (safeOffset >= duration - 0.01) {
+            positionRef.current = duration;
+            playingRef.current = false;
+            setPosition(duration);
+            setPlaying(false);
+            return;
+          }
+          const source = track.context.createBufferSource();
+          const gain = track.context.createGain();
+          source.buffer = track.buffer;
+          source.connect(gain);
+          gain.connect(track.masterGain);
+          const now = track.context.currentTime;
+          gain.gain.setValueAtTime(fade ? 0 : 1, now);
+          gain.gain.linearRampToValueAtTime(1, now + (fade ? 0.018 : 0.001));
+          source.start(0, safeOffset);
+          source.onended = () => {
+            if (sourceRef.current !== source || scrubbingRef.current) return;
+            sourceRef.current = null;
+            playingRef.current = false;
+            positionRef.current = duration;
+            setPosition(duration);
+            setPlaying(false);
+          };
+          sourceRef.current = source;
+          sourceGainRef.current = gain;
+          startContextTimeRef.current = now;
+          startOffsetRef.current = safeOffset;
+          positionRef.current = safeOffset;
+          playingRef.current = true;
+          setPlaying(true);
+        }, [stopNormal, track]);
+
+        const togglePlay = async () => {
+          await track.context.resume();
+          if (playingRef.current) pause();
+          else {
+            const atEnd = positionRef.current >= track.buffer.duration - 0.01;
+            playFrom(atEnd ? 0 : positionRef.current);
+          }
+        };
+
+        const handlePlayerClick = (event) => {
+          if (ignoreNextClickRef.current) {
+            ignoreNextClickRef.current = false;
+            return;
+          }
+          if (event.target.closest("button, input")) return;
+          togglePlay();
+        };
+
+        const changeVolume = (event) => {
+          const nextVolume = Number(event.target.value);
+          setVolume(nextVolume);
+          track.masterGain.gain.setTargetAtTime(
+            nextVolume * nextVolume,
+            track.context.currentTime,
+            0.015
+          );
+        };
+
+        const beginScrub = async (event) => {
+          event.preventDefault();
+          await track.context.resume();
+          deckRef.current.setPointerCapture(event.pointerId);
+          const startPosition = currentPosition();
+          const wasPlaying = playingRef.current;
+          stopNormal();
+          playingRef.current = false;
+          scrubbingRef.current = true;
+          positionRef.current = startPosition;
+          setPlaying(false);
+          setScrubbing(true);
+          setPosition(startPosition);
+          gestureRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            lastX: event.clientX,
+            lastTime: performance.now(),
+            startPosition,
+            wasPlaying,
+            moved: false,
+          };
+          if (wasPlaying) {
+            track.scrubNode.port.postMessage({
+              type: "start",
+              position: startPosition * track.buffer.sampleRate,
+            });
+          }
+        };
+
+        const moveScrub = (event) => {
+          const gesture = gestureRef.current;
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          const now = performance.now();
+          const elapsed = Math.max(8, now - gesture.lastTime) / 1000;
+          const deltaX = event.clientX - gesture.lastX;
+          const totalX = event.clientX - gesture.startX;
+          if (Math.abs(totalX) > 2) gesture.moved = true;
+          const nextPosition = clamp(
+            gesture.startPosition - totalX / PIXELS_PER_SECOND,
+            0,
+            track.buffer.duration
+          );
+          positionRef.current = nextPosition;
+          setPosition(nextPosition);
+          if (gesture.wasPlaying) {
+            const speed = clamp((-deltaX / PIXELS_PER_SECOND) / elapsed, -6, 6);
+            track.scrubNode.port.postMessage({ type: "speed", speed });
+          }
+          gesture.lastX = event.clientX;
+          gesture.lastTime = now;
+          window.clearTimeout(stopScrubTimerRef.current);
+          if (gesture.wasPlaying) {
+            stopScrubTimerRef.current = window.setTimeout(() => {
+              track.scrubNode.port.postMessage({ type: "speed", speed: 0 });
+            }, 48);
+          }
+        };
+
+        const endScrub = (event) => {
+          const gesture = gestureRef.current;
+          if (!gesture || event.pointerId !== gesture.pointerId) return;
+          window.clearTimeout(stopScrubTimerRef.current);
+          track.scrubNode.port.postMessage({ type: "stop" });
+          gestureRef.current = null;
+          scrubbingRef.current = false;
+          setScrubbing(false);
+          const resumePosition = positionRef.current;
+          ignoreNextClickRef.current = event.type === "pointerup";
+          if (gesture.moved) {
+            if (gesture.wasPlaying) playFrom(resumePosition, true);
+          } else if (!gesture.wasPlaying) {
+            const atEnd = resumePosition >= track.buffer.duration - 0.01;
+            playFrom(atEnd ? 0 : resumePosition, true);
+          }
+        };
+
+        useEffect(() => {
+          const render = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+            if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+            }
+            const context = canvas.getContext("2d");
+            context.setTransform(dpr, 0, 0, dpr, 0, 0);
+            context.clearRect(0, 0, rect.width, rect.height);
+
+            const playPosition = currentPosition();
+            positionRef.current = playPosition;
+            const centerX = rect.width / 2;
+            const middle = rect.height / 2;
+            const data = track.waveform;
+            context.fillStyle = "#c9c9c5";
+            context.globalAlpha = scrubbingRef.current ? .95 : .72;
+
+            const leftTime = playPosition - centerX / PIXELS_PER_SECOND;
+            const rightTime = playPosition + centerX / PIXELS_PER_SECOND;
+            const firstStem = Math.max(0, Math.floor(leftTime / STEM_STEP_SECONDS) - 1);
+            const lastStem = Math.min(data.length - 1, Math.ceil(rightTime / STEM_STEP_SECONDS) + 1);
+            for (let stem = firstStem; stem <= lastStem; stem += 1) {
+              const stemTime = stem * STEM_STEP_SECONDS;
+              const x = centerX + (stemTime - playPosition) * PIXELS_PER_SECOND;
+              const stemHeight = Math.max(16, data[stem] * rect.height * .96);
+              const y = middle - stemHeight / 2;
+              context.beginPath();
+              context.roundRect(x, y, STEM_WIDTH, stemHeight, STEM_WIDTH / 2);
+              context.fill();
+            }
+            context.globalAlpha = 1;
+
+            setPosition((shown) => Math.abs(shown - playPosition) > .045 ? playPosition : shown);
+            rafRef.current = requestAnimationFrame(render);
+          };
+          rafRef.current = requestAnimationFrame(render);
+          return () => cancelAnimationFrame(rafRef.current);
+        }, [currentPosition, track]);
+
+        useEffect(() => () => {
+          window.clearTimeout(stopScrubTimerRef.current);
+          track.scrubNode.port.postMessage({ type: "stop" });
+          track.scrubNode.disconnect();
+          stopNormal();
+        }, [stopNormal, track]);
+
+        return (
+          <main className="player" onClick={handlePlayerClick}>
+            <section
+              ref={deckRef}
+              className={`deck ${scrubbing ? "scrubbing" : ""}`}
+              onPointerDown={beginScrub}
+              onPointerMove={moveScrub}
+              onPointerUp={endScrub}
+              onPointerCancel={endScrub}
+              aria-label="Drag horizontally to scrub the audio"
+            >
+              <canvas ref={canvasRef} />
+              <div className="playhead" />
+              <div className="time">
+                <span>{formatTime(position)}</span>
+                <span>{formatTime(track.buffer.duration)}</span>
+              </div>
+            </section>
+
+            <footer className="controls">
+              <button
+                className="track-switch"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReset();
+                }}
+              >
+                <span className="track-label">{track.name}</span>
+                <span className="change-label">Change track</span>
+              </button>
+              <button
+                className="play-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  togglePlay();
+                }}
+                aria-label={playing ? "Pause" : "Play"}
+              >
+                {playing
+                  ? <span className="pause-icon">Ⅱ</span>
+                  : <span className="play-icon">▶</span>}
+              </button>
+              <div className="right-controls">
+                <label className="volume-control" onClick={(event) => event.stopPropagation()}>
+                  <span>Volume</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
+                    onChange={changeVolume}
+                    aria-label="Volume"
+                  />
+                </label>
+                <div className="hint">Drag speed controls playback</div>
+              </div>
+            </footer>
+          </main>
+        );
+      }
+
+      function App() {
+        const [track, setTrack] = useState(null);
+
+        const loadFile = async (file, onProgress) => {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) throw new Error("Web Audio API is not supported");
+          const context = new AudioContextClass();
+          await context.resume();
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            onProgress(5);
+            const buffer = await context.decodeAudioData(arrayBuffer);
+            onProgress(15);
+            const waveform = await makeWaveformStems(buffer, onProgress);
+            onProgress(88);
+            const masterGain = context.createGain();
+            masterGain.gain.value = 0.8 * 0.8;
+            masterGain.connect(context.destination);
+            const scrubNode = await createScrubNode(context, buffer, masterGain);
+            onProgress(98);
+            setTrack({
+              name: file.name.replace(/\.[^/.]+$/, "") || "Untitled",
+              buffer,
+              context,
+              waveform,
+              scrubNode,
+              masterGain,
+            });
+          } catch (error) {
+            await context.close();
+            throw error;
+          }
+        };
+
+        const reset = async () => {
+          if (track) await track.context.close();
+          setTrack(null);
+        };
+
+        return track ? <Player track={track} onReset={reset} /> : <DropScreen onFile={loadFile} />;
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
