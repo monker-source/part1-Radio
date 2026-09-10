@@ -2874,7 +2874,7 @@
         };
 
         useEffect(() => {
-          const PARTICLE_COUNT = 128;
+          const PARTICLE_COUNT = 4000;
           const analyser = track.engine.analyser;
           const freqData = new Uint8Array(analyser.frequencyBinCount);
           const binCount = freqData.length;
@@ -2883,14 +2883,33 @@
           const midEnd = Math.floor(binCount * 0.4);
           const highStart = Math.floor(binCount * 0.4);
 
+          const hash01 = (n) => {
+            let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
+            x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+            return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+          };
+
           const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-            const t = i / PARTICLE_COUNT;
+            const a = hash01(i * 3 + 1);
+            const b = hash01(i * 3 + 2);
+            const c = hash01(i * 3 + 3);
+            // Fully random angles — no evenly spaced orbit
+            const angle = a * Math.PI * 2;
+            // Random cloud radii: interior + belt + outer scatter (not a thin arc)
+            let radiusJitter;
+            if (b < 0.5) radiusJitter = 0.5 + c * 0.6;
+            else if (b < 0.82) radiusJitter = 0.08 + c * 0.55;
+            else radiusJitter = 0.85 + c * 0.7;
             return {
-              angle: t * Math.PI * 2,
-              radiusJitter: 0.82 + (i % 7) * 0.04 + (i % 3) * 0.02,
-              midBin: midStart + Math.floor((i / PARTICLE_COUNT) * Math.max(1, midEnd - midStart)),
-              highBin: highStart + Math.floor((i / PARTICLE_COUNT) * Math.max(1, binCount - highStart)),
-              phase: (i * 0.61803398875) % 1,
+              angle,
+              radiusJitter,
+              midBin: midStart + Math.floor(b * Math.max(1, midEnd - midStart)),
+              highBin: highStart + Math.floor(c * Math.max(1, binCount - highStart)),
+              phase: b,
+              spin: (a - 0.5) * 0.9,
+              sizeMul: 0.35 + c * 1.1,
+              ellipX: 0.85 + a * 0.35,
+              ellipY: 0.75 + b * 0.4,
             };
           });
 
@@ -2900,6 +2919,9 @@
           let smoothedHigh = 0;
           let animT = 0;
           let lastFrameNow = performance.now();
+          let glitchBurstStart = -1;
+          let glitchBurstUntil = -1;
+          let glitchPrevTransient = 0;
 
           const averageRange = (start, end) => {
             let sum = 0;
@@ -3021,7 +3043,7 @@
 
             const centerX = rect.width / 2;
             const centerY = rect.height / 2;
-            let baseRadius = Math.min(rect.width, rect.height) * 0.22;
+            let baseRadius = Math.min(rect.width, rect.height) * 0.3;
             if (fx.longReverb?.enabled) {
               baseRadius *= 1 + fx.longReverb.wet * 0.35;
             }
@@ -3030,10 +3052,42 @@
             const collageLayers = collageOn ? Math.max(1, collageDelays.length) : 1;
             const glitchMode = fx.glitchDegrade?.triggerMode || "continuous";
             const glitchInten = fx.glitchDegrade?.enabled ? (fx.glitchDegrade.intensity || 0) : 0;
-            // random-burst gate: sparse windows
-            const burstGate = glitchMode === "random-burst"
-              && (Math.sin(t * 1.7 + Math.floor(t * 0.35) * 2.1) > 0.78);
-            const transientHit = useMid * 0.55 + useHigh * 0.45;
+            const transientHit = useMid * 0.45 + useHigh * 0.55;
+
+            // Tiny explosive bursts for random-burst / threshold (not long rolling windows)
+            let burstEnv = 0;
+            if (live && fx.glitchDegrade?.enabled && glitchMode !== "continuous") {
+              let fire = false;
+              if (glitchMode === "random-burst") {
+                if (t >= glitchBurstUntil) {
+                  // sparse rolls — average ~every 0.6–1.4s depending on intensity
+                  const chance = (0.008 + glitchInten * 0.018) * Math.min(1, dt * 60);
+                  if (Math.random() < chance) fire = true;
+                }
+              } else if (glitchMode === "threshold") {
+                const thresh = 0.34 - glitchInten * 0.16;
+                if (transientHit > thresh && glitchPrevTransient <= thresh && t >= glitchBurstUntil) {
+                  fire = true;
+                }
+              }
+              if (fire) {
+                const len = 0.05 + glitchInten * 0.07; // ~50–120ms pop
+                glitchBurstStart = t;
+                glitchBurstUntil = t + len;
+              }
+              if (t < glitchBurstUntil && glitchBurstStart >= 0) {
+                const len = Math.max(0.04, glitchBurstUntil - glitchBurstStart);
+                const age = t - glitchBurstStart;
+                // sharp attack, fast decay — reads as an explosion
+                const linear = clamp(1 - age / len, 0, 1);
+                burstEnv = linear * linear;
+              }
+              glitchPrevTransient = transientHit;
+            } else {
+              glitchBurstStart = -1;
+              glitchBurstUntil = -1;
+              glitchPrevTransient = transientHit;
+            }
 
             for (let i = 0; i < PARTICLE_COUNT; i += 1) {
               const p = particles[i];
@@ -3073,8 +3127,8 @@
                 }
               }
 
-              let angle = p.angle + rotation;
-              let radius = spread * p.radiusJitter * (1 + mid * 0.08);
+              let angle = p.angle + rotation * (0.55 + p.spin * 0.5) + p.spin * t * 0.12;
+              let radius = spread * p.radiusJitter * (1 + mid * 0.1 + useBass * 0.05);
 
               // wowFlutter: subtle vinyl wobble (matched closer to audio)
               if (fx.wowFlutter?.enabled) {
@@ -3088,11 +3142,11 @@
 
               if (fx.pitchTimeDecouple?.enabled) {
                 const semi = (fx.pitchTimeDecouple.pitchSemitones || 0) / 12;
-                p._sx = 1 + semi * 0.35;
-                p._sy = 1 - semi * 0.28;
+                p._sx = p.ellipX * (1 + semi * 0.35);
+                p._sy = p.ellipY * (1 - semi * 0.28);
               } else {
-                p._sx = 1;
-                p._sy = 1;
+                p._sx = p.ellipX;
+                p._sy = p.ellipY;
               }
 
               if (fx.loopFragment?.enabled) {
@@ -3111,25 +3165,22 @@
                 }
               }
 
-              // glitchDegrade by triggerMode (gold tint only later)
+              // glitchDegrade by triggerMode
               if (live && fx.glitchDegrade?.enabled) {
                 const inten = glitchInten;
                 if (glitchMode === "continuous") {
                   angle += (Math.random() - 0.5) * inten * 0.35;
                   radius += (Math.random() - 0.5) * inten * 10;
                   if (Math.random() < inten * 0.08) draw = false;
-                } else if (glitchMode === "random-burst") {
-                  if (burstGate) {
-                    angle += (Math.random() - 0.5) * inten * 1.4;
-                    radius += (Math.random() - 0.5) * inten * 36;
-                    if (Math.random() < inten * 0.35) draw = false;
-                  }
-                } else if (glitchMode === "threshold") {
-                  const gate = transientHit > (0.28 - inten * 0.18);
-                  if (gate) {
-                    angle += (Math.random() - 0.5) * inten * 0.9;
-                    radius += (Math.random() - 0.5) * inten * 22;
-                    if (Math.random() < inten * 0.2) draw = false;
+                } else if (burstEnv > 0.001) {
+                  // explode outward for a few frames, then snap back
+                  const kick = burstEnv * (0.55 + inten * 1.45);
+                  const outward = 1 + kick * (1.4 + p.radiusJitter * 1.8);
+                  radius *= outward;
+                  angle += (p.phase - 0.5) * kick * 1.1;
+                  // debris flecks at the peak
+                  if (burstEnv > 0.55 && Math.random() < inten * 0.22 * burstEnv) {
+                    radius *= 1.35 + Math.random() * kick;
                   }
                 }
               }
@@ -3152,7 +3203,7 @@
                 }
               }
 
-              let size = 2.8 + mid * 7.2 + high * 4.5;
+              let size = (0.45 + p.sizeMul * (0.55 + mid * 1.3 + high * 0.9));
 
               // modulatedLowpass: angular mass gradient (big → small past cutoff)
               if (fx.modulatedLowpass?.enabled) {
@@ -3175,8 +3226,8 @@
               }
               if (live && fx.glitchDegrade?.enabled && glitchMode === "continuous") {
                 size *= 0.85 + Math.random() * glitchInten * 0.5;
-              } else if (live && fx.glitchDegrade?.enabled && glitchMode === "random-burst" && burstGate) {
-                size *= 0.5 + Math.random() * glitchInten * 1.6;
+              } else if (live && fx.glitchDegrade?.enabled && burstEnv > 0.001) {
+                size *= 1 + burstEnv * (1.2 + glitchInten * 1.6);
               }
 
               if (!draw) continue;
@@ -3184,8 +3235,8 @@
               const fill = anyFx ? "rgba(232, 194, 122, 1)" : "rgba(255, 255, 255, 1)";
               ctx.fillStyle = fill;
 
-              // Discrete trail: 2–3 smaller solid circles behind motion (no blend)
-              if (useDiscreteTrail && trailCount > 0) {
+              // Discrete trail: subset only (4000×3 would be too heavy)
+              if (useDiscreteTrail && trailCount > 0 && (i % 5) === 0) {
                 for (let k = trailCount; k >= 1; k -= 1) {
                   const trailAngle = angle - trailStep * k * (fx.reverse?.enabled ? -1 : 1);
                   const trailScale = 1 - k * 0.22;
@@ -3193,7 +3244,7 @@
                   const tx = centerX + Math.cos(trailAngle) * tr * p._sx;
                   const ty = centerY + Math.sin(trailAngle) * tr * p._sy;
                   ctx.beginPath();
-                  ctx.arc(tx, ty, Math.max(1.2, size * trailScale), 0, Math.PI * 2);
+                  ctx.arc(tx, ty, Math.max(0.5, size * trailScale), 0, Math.PI * 2);
                   ctx.fill();
                 }
               }
