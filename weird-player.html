@@ -143,90 +143,82 @@
         margin: 0 calc(var(--page-margin) * -1);
         width: calc(100% + var(--page-margin) * 2);
         position: relative;
-        cursor: grab;
-        touch-action: none;
         user-select: none;
       }
-      .deck.scrubbing { cursor: grabbing; }
       .deck canvas { width: 100%; height: 100%; display: block; }
 
-      .playhead {
+      .mini-player {
         position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 50%;
-        width: 1px;
-        transform: translateX(-50%);
-        z-index: 2;
-        pointer-events: none;
-        background: rgba(241, 239, 231, .64);
-        box-shadow: 0 0 18px rgba(255, 255, 255, .1);
-      }
-
-      .time {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 0;
-        height: 0;
-        z-index: 3;
-        color: rgba(241, 239, 231, .4);
-        font: 400 11px/1 "Roboto Mono", monospace;
-        letter-spacing: .08em;
-        white-space: nowrap;
-        pointer-events: none;
-      }
-      .time-input {
-        position: absolute;
-        right: 18px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 7em;
-        border: 1px solid transparent;
-        background: transparent;
-        color: rgba(241, 239, 231, .7);
-        font: 400 11px/1 "Roboto Mono", monospace;
-        font-variant-numeric: tabular-nums;
-        letter-spacing: .08em;
-        text-align: right;
-        padding: 0;
+        left: var(--page-margin);
+        bottom: var(--page-margin);
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        width: 220px;
+        max-width: calc(100% - 32px);
+        box-sizing: border-box;
+        background: rgba(13, 13, 12, .72);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(8px);
         pointer-events: auto;
       }
-      .time-input:hover { border-color: var(--line); }
-      .time-input:focus {
-        outline: none;
-        border-color: rgba(232, 194, 122, .45);
-        color: #f1efe7;
-      }
-      .time-total {
-        position: absolute;
-        left: 18px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: rgba(241, 239, 231, .4);
-        font-variant-numeric: tabular-nums;
-      }
 
-      .controls {
-        height: 52px;
+      .mini-player .transport {
         display: flex;
         align-items: center;
+        gap: 8px;
+      }
+
+      .mini-player .time {
+        display: flex;
+        align-items: baseline;
         justify-content: space-between;
-        gap: 16px;
-        position: relative;
+        gap: 8px;
+        width: 100%;
+        color: rgba(241, 239, 231, .4);
+        font: 400 10px/1 "Roboto Mono", monospace;
+        letter-spacing: .06em;
+        white-space: nowrap;
+      }
+      .mini-player .time-input {
+        width: auto;
+        min-width: 0;
+        flex: 0 1 auto;
+        border: 1px solid transparent;
+        background: transparent;
+        color: rgba(241, 239, 231, .78);
+        font: 400 10px/1 "Roboto Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: .06em;
+        text-align: left;
+        padding: 0;
+      }
+      .mini-player .time-input:hover { border-color: var(--line); }
+      .mini-player .time-input:focus {
+        outline: none;
+        border-color: rgba(241, 239, 231, .35);
+        color: #fff;
+      }
+      .mini-player .time-total {
+        color: rgba(241, 239, 231, .35);
+        font-variant-numeric: tabular-nums;
         flex-shrink: 0;
       }
 
-      .transport {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        z-index: 3;
+      .mini-player .seek-control {
+        display: block;
+        width: 100%;
+      }
+      .mini-player .seek-control input {
+        width: 100%;
+        margin: 0;
       }
 
       .restart-button {
-        width: 36px;
-        height: 36px;
+        width: 28px;
+        height: 28px;
         display: grid;
         place-items: center;
         border: 1px solid rgba(241, 239, 231, .28);
@@ -242,16 +234,14 @@
         color: #f1efe7;
       }
       .restart-icon {
-        font-size: 13px;
+        font-size: 11px;
         line-height: 1;
         transform: translateY(-0.5px);
       }
 
       .play-button {
-        position: relative;
-        z-index: 3;
-        width: 52px;
-        height: 52px;
+        width: 34px;
+        height: 34px;
         display: grid;
         place-items: center;
         border: 1px solid rgba(241, 239, 231, .28);
@@ -260,40 +250,37 @@
         color: #0d0d0c;
         cursor: pointer;
         transition: transform .2s, background .2s;
+        flex-shrink: 0;
       }
       .play-button:hover { transform: scale(1.04); }
-      .play-icon { font-size: 17px; transform: translateX(1px); }
-      .pause-icon { font-size: 13px; letter-spacing: 2px; transform: translateX(1px); }
+      .play-icon { font-size: 12px; transform: translateX(1px); }
+      .pause-icon { font-size: 10px; letter-spacing: 1px; transform: translateX(1px); }
 
-      .right-controls {
+      .mini-player .volume-control {
         display: flex;
         align-items: center;
-        margin-left: auto;
-        z-index: 3;
-      }
-      .volume-control {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 52px;
+        gap: 8px;
+        width: 100%;
         color: rgba(241, 239, 231, .4);
-        font: 400 9px/1 "Roboto Mono", monospace;
+        font: 400 8px/1 "Roboto Mono", monospace;
         letter-spacing: .1em;
         text-transform: uppercase;
       }
       .volume-control input,
       .param input[type="range"],
-      .fx-footer input[type="range"] {
+      .fx-footer input[type="range"],
+      .mini-player .seek-control input {
         height: 3px;
         border-radius: 2px;
         appearance: none;
         background: rgba(241, 239, 231, .2);
         cursor: pointer;
       }
-      .volume-control input { width: 92px; }
+      .mini-player .volume-control input { flex: 1; width: auto; min-width: 0; }
       .volume-control input::-webkit-slider-thumb,
       .param input[type="range"]::-webkit-slider-thumb,
-      .fx-footer input[type="range"]::-webkit-slider-thumb {
+      .fx-footer input[type="range"]::-webkit-slider-thumb,
+      .mini-player .seek-control input::-webkit-slider-thumb {
         width: 11px;
         height: 11px;
         border: 0;
@@ -303,7 +290,8 @@
       }
       .volume-control input::-moz-range-thumb,
       .param input[type="range"]::-moz-range-thumb,
-      .fx-footer input[type="range"]::-moz-range-thumb {
+      .fx-footer input[type="range"]::-moz-range-thumb,
+      .mini-player .seek-control input::-moz-range-thumb {
         width: 11px;
         height: 11px;
         border: 0;
@@ -551,7 +539,7 @@
         text-transform: none;
         white-space: pre-wrap;
         box-shadow: 0 12px 28px rgba(0, 0, 0, .45);
-        pointer-events: auto;
+        pointer-events: none;
       }
       .fx-toggle {
         width: 36px;
@@ -688,8 +676,8 @@
           border-left: 0;
           border-top: 1px solid var(--line);
         }
-        .volume-control span { display: none; }
-        .volume-control input { width: 72px; }
+        .mini-player { width: min(220px, calc(100% - 32px)); }
+        .mini-player .volume-control span { display: none; }
         .track-switch { max-width: 42vw; }
       }
     </style>
@@ -786,13 +774,6 @@
           lowpassHz: 16000,
           transientSoft: 0,
         },
-        spectralFreeze: {
-          enabled: false,
-          sliceMs: 120,
-          holdSec: 4,
-          crossfadeSec: 2.5,
-          wet: 0,
-        },
         modulatedLowpass: {
           enabled: false,
           cutoffHz: 8000,
@@ -832,7 +813,6 @@
           title: "Melodic",
           keys: [
             "pitchTimeDecouple",
-            "spectralFreeze",
             "modulatedLowpass",
             "longReverb",
           ],
@@ -1607,8 +1587,7 @@
                   }
 
                   let banded = this.applyBandIsolation(pL, pR);
-                  let frozen = this.applySpectralFreeze(banded[0], banded[1]);
-                  let filtered = this.applyModulatedLowpass(frozen[0], frozen[1]);
+                  let filtered = this.applyModulatedLowpass(banded[0], banded[1]);
                   let reverbed = this.applyLongReverb(filtered[0], filtered[1]);
                   left = reverbed[0];
                   right = reverbed[1];
@@ -2086,8 +2065,6 @@
           "Stacks delayed copies of the same track on top of each other. Each layer can start late, play a bit slower or faster, and be quieter or louder.",
         bandIsolation:
           "Keeps only some tones and thins the rest so the song feels less full. Choose mid+bright, bright only, or mid only. Soften hits weakens drums and sudden attacks.",
-        spectralFreeze:
-          "Grabs a tiny moment and holds that tone like a continuous drone. After the hold time it grabs a new moment and blends over. Wet = how much freeze vs the live track.",
         modulatedLowpass:
           "Slowly muffles the sound, like going underwater. Cutoff is how muffled; sweep cycle and width move that muffling over time. Resonance adds a soft whistle on top.",
         longReverb:
@@ -2175,8 +2152,6 @@
                     top: coords.top,
                     width: coords.width,
                   }}
-                  onMouseEnter={show}
-                  onMouseLeave={hide}
                 >
                   {text}
                 </div>,
@@ -2498,17 +2473,6 @@
                     onChange={(v) => patch("pitchTimeDecouple", { pitchSemitones: v })} />
                 </FxModule>
 
-                <FxModule {...moduleProps("spectralFreeze")}>
-                  <Slider label="sliceMs" value={fx.spectralFreeze.sliceMs} min={50} max={200} step={5} digits={0} rest={DEFAULT_FX.spectralFreeze.sliceMs}
-                    onChange={(v) => patch("spectralFreeze", { sliceMs: v })} />
-                  <Slider label="holdSec" value={fx.spectralFreeze.holdSec} min={0.5} max={30} step={0.1} rest={DEFAULT_FX.spectralFreeze.holdSec}
-                    onChange={(v) => patch("spectralFreeze", { holdSec: v })} />
-                  <Slider label="crossfadeSec" value={fx.spectralFreeze.crossfadeSec} min={0.2} max={12} step={0.1} rest={DEFAULT_FX.spectralFreeze.crossfadeSec}
-                    onChange={(v) => patch("spectralFreeze", { crossfadeSec: v })} />
-                  <Slider label="wet" value={fx.spectralFreeze.wet} min={0} max={1} step={0.01} rest={DEFAULT_FX.spectralFreeze.wet}
-                    onChange={(v) => patch("spectralFreeze", { wet: v })} />
-                </FxModule>
-
                 <FxModule {...moduleProps("modulatedLowpass")}>
                   <Slider label="cutoffHz" value={fx.modulatedLowpass.cutoffHz} min={120} max={8000} step={10} digits={0} rest={DEFAULT_FX.modulatedLowpass.cutoffHz}
                     onChange={(v) => patch("modulatedLowpass", { cutoffHz: v })} />
@@ -2583,7 +2547,6 @@
         const rev = fx.reverse;
         const collage = fx.layeredCollage;
         const band = fx.bandIsolation;
-        const freeze = fx.spectralFreeze;
         const lpf = fx.modulatedLowpass;
         const verb = fx.longReverb;
         const cutUp = loop.enabled && isCutUpMode(loop.mode);
@@ -2667,11 +2630,11 @@
             transientSoft: scaleWithChaos(band.transientSoft, chaos, "intensity"),
           },
           spectralFreeze: {
-            enabled: freeze.enabled,
-            sliceMs: freeze.sliceMs,
-            holdSec: freeze.holdSec,
-            crossfadeSec: freeze.crossfadeSec,
-            wet: freeze.wet,
+            enabled: false,
+            sliceMs: 120,
+            holdSec: 4,
+            crossfadeSec: 2.5,
+            wet: 0,
           },
           modulatedLowpass: {
             enabled: lpf.enabled,
@@ -2691,12 +2654,8 @@
 
       function Player({ track, onReset }) {
         const canvasRef = useRef(null);
-        const deckRef = useRef(null);
         const positionRef = useRef(0);
         const playingRef = useRef(false);
-        const scrubbingRef = useRef(false);
-        const gestureRef = useRef(null);
-        const ignoreNextClickRef = useRef(false);
         const rafRef = useRef(0);
         const fxRef = useRef(DEFAULT_FX);
         const chaosRef = useRef(0);
@@ -2704,7 +2663,6 @@
         const stochasticMemoryRef = useRef({});
 
         const [playing, setPlaying] = useState(false);
-        const [scrubbing, setScrubbing] = useState(false);
         const [position, setPosition] = useState(0);
         const [volume, setVolume] = useState(0.8);
         const [fx, setFx] = useState(() => structuredClone(DEFAULT_FX));
@@ -2786,7 +2744,7 @@
         useEffect(() => {
           const onMsg = (event) => {
             const data = event.data;
-            if (data.type === "pos" && !scrubbingRef.current) {
+            if (data.type === "pos") {
               const sec = data.position / track.buffer.sampleRate;
               positionRef.current = clamp(sec, 0, duration);
               setPosition((shown) =>
@@ -2910,100 +2868,343 @@
           }
         };
 
-        const beginScrub = async (event) => {
-          event.preventDefault();
-          await track.context.resume();
-          deckRef.current.setPointerCapture(event.pointerId);
-          const startPosition = positionRef.current;
-          const wasPlaying = playingRef.current;
-          if (wasPlaying) pause();
-          scrubbingRef.current = true;
-          setScrubbing(true);
-          gestureRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startPosition,
-            wasPlaying,
-            moved: false,
-          };
-        };
-
-        const moveScrub = (event) => {
-          const gesture = gestureRef.current;
-          if (!gesture || event.pointerId !== gesture.pointerId) return;
-          const totalX = event.clientX - gesture.startX;
-          if (Math.abs(totalX) > 2) gesture.moved = true;
-          const nextPosition = clamp(
-            gesture.startPosition - totalX / PIXELS_PER_SECOND,
-            0,
-            duration
-          );
-          seek(nextPosition);
-        };
-
-        const endScrub = (event) => {
-          const gesture = gestureRef.current;
-          if (!gesture || event.pointerId !== gesture.pointerId) return;
-          gestureRef.current = null;
-          scrubbingRef.current = false;
-          setScrubbing(false);
-          ignoreNextClickRef.current = event.type === "pointerup";
-          if (gesture.moved) {
-            if (gesture.wasPlaying) play();
-          } else if (!gesture.wasPlaying) {
-            play();
-          } else {
-            play();
-          }
-        };
-
         const handlePlayerClick = (event) => {
-          if (ignoreNextClickRef.current) {
-            ignoreNextClickRef.current = false;
-            return;
-          }
-          if (event.target.closest("button, input, select, .fx-panel")) return;
+          if (event.target.closest("button, input, select, .fx-panel, .mini-player")) return;
           togglePlay();
         };
 
         useEffect(() => {
-          const render = () => {
+          const PARTICLE_COUNT = 128;
+          const analyser = track.engine.analyser;
+          const freqData = new Uint8Array(analyser.frequencyBinCount);
+          const binCount = freqData.length;
+          const bassEnd = Math.max(1, Math.floor(binCount * 0.08));
+          const midStart = Math.floor(binCount * 0.08);
+          const midEnd = Math.floor(binCount * 0.4);
+          const highStart = Math.floor(binCount * 0.4);
+
+          const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+            const t = i / PARTICLE_COUNT;
+            return {
+              angle: t * Math.PI * 2,
+              radiusJitter: 0.82 + (i % 7) * 0.04 + (i % 3) * 0.02,
+              midBin: midStart + Math.floor((i / PARTICLE_COUNT) * Math.max(1, midEnd - midStart)),
+              highBin: highStart + Math.floor((i / PARTICLE_COUNT) * Math.max(1, binCount - highStart)),
+              phase: (i * 0.61803398875) % 1,
+            };
+          });
+
+          let rotation = 0;
+          let smoothedBass = 0;
+          let smoothedMid = 0;
+          let smoothedHigh = 0;
+          let animT = 0;
+          let lastFrameNow = performance.now();
+
+          const averageRange = (start, end) => {
+            let sum = 0;
+            const lo = Math.max(0, start);
+            const hi = Math.min(binCount, end);
+            const n = Math.max(1, hi - lo);
+            for (let i = lo; i < hi; i += 1) sum += freqData[i];
+            return sum / n / 255;
+          };
+
+          const render = (now) => {
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             const width = Math.max(1, Math.floor(rect.width * dpr));
             const height = Math.max(1, Math.floor(rect.height * dpr));
-            if (canvas.width !== width || canvas.height !== height) {
+            const ctx = canvas.getContext("2d");
+            const resized = canvas.width !== width || canvas.height !== height;
+            if (resized) {
               canvas.width = width;
               canvas.height = height;
             }
-            const ctx = canvas.getContext("2d");
+
+            const dt = Math.min(0.05, Math.max(0, (now - lastFrameNow) / 1000));
+            lastFrameNow = now;
+            const live = playingRef.current;
+            if (live) animT += dt;
+            const t = animT;
+
+            const fx = fxRef.current;
+            const chaos = chaosRef.current || 0;
+            const anyFx = Object.values(fx).some((m) => m && m.enabled);
+
+            // Collage delay → trail length
+            let collageMaxDelay = 0;
+            let collageDelays = [0];
+            if (fx.layeredCollage?.enabled) {
+              const lc = fx.layeredCollage;
+              const n = Math.max(1, lc.layerCount || 1);
+              collageDelays = [0];
+              if (n >= 2) collageDelays.push(lc.layer1Delay || 0);
+              if (n >= 3) collageDelays.push(lc.layer2Delay || 0);
+              if (n >= 4) collageDelays.push(lc.layer3Delay || 0);
+              collageMaxDelay = Math.max(...collageDelays);
+            }
+
+            // Discrete echo trails (2–3 smaller dots) — no blended fade
+            const reverbOn = !!(fx.longReverb?.enabled && (fx.longReverb.wet || 0) > 0.02);
+            const collageOn = !!fx.layeredCollage?.enabled;
+            const useDiscreteTrail = live && (reverbOn || collageOn);
+            let trailCount = 0;
+            let trailStep = 0.12;
+            if (useDiscreteTrail) {
+              if (reverbOn) {
+                trailCount = Math.max(trailCount, 2 + Math.round(clamp(fx.longReverb.wet, 0, 1) * 1));
+                trailStep = Math.max(trailStep, 0.1 + (fx.longReverb.decaySec || 8) * 0.004);
+              }
+              if (collageOn) {
+                const delayNorm = clamp(collageMaxDelay / 2.5, 0, 1);
+                trailCount = Math.max(trailCount, 2 + Math.round(delayNorm));
+                trailStep = Math.max(trailStep, 0.08 + delayNorm * 0.22);
+              }
+              trailCount = clamp(trailCount, 2, 3);
+            }
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = "#0d0d0c";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, rect.width, rect.height);
 
-            const playPosition = positionRef.current;
+            let lpfCutNorm = 0.5;
+            let lpfPhase = 0;
+            if (fx.modulatedLowpass?.enabled) {
+              const depth = fx.modulatedLowpass.lfoDepth || 0;
+              const period = Math.max(0.5, fx.modulatedLowpass.lfoPeriodSec || 36);
+              lpfPhase = (t * Math.PI * 2) / period;
+              const breathe = Math.sin(lpfPhase) * depth;
+              lpfCutNorm = clamp(
+                fx.modulatedLowpass.cutoffHz / 8000 + breathe * 0.25,
+                0.08,
+                1.2
+              );
+            }
+
+            if (live) {
+              analyser.getByteFrequencyData(freqData);
+
+              let bass = averageRange(0, bassEnd);
+              let midAvg = averageRange(midStart, midEnd);
+              let highAvg = averageRange(highStart, binCount);
+
+              smoothedBass += (bass - smoothedBass) * 0.12;
+              smoothedMid += (midAvg - smoothedMid) * 0.12;
+              smoothedHigh += (highAvg - smoothedHigh) * 0.12;
+            }
+
+            // smoothed analyser bands
+            let useBass = smoothedBass;
+            let useMid = smoothedMid;
+            let useHigh = smoothedHigh;
+
+            // Rotation only while playing; reverse always = full-track flip
+            if (live) {
+              let rotDir = fx.reverse?.enabled ? -1 : 1;
+              let rotSpeed = 0.004 + useBass * 0.01;
+              if (fx.pitchTimeDecouple?.enabled) {
+                const speed = clamp((fx.pitchTimeDecouple.speedPercent || 100) / 100, 0.1, 4);
+                rotSpeed *= speed;
+              }
+              if (fx.wowFlutter?.enabled) {
+                rotSpeed += (fx.wowFlutter.rateHz || 0) * 0.0006;
+              }
+              if (fx.stochasticBehavior?.enabled) {
+                rotSpeed += (fx.stochasticBehavior.probability || 0) * 0.006;
+              }
+              rotation += rotSpeed * rotDir * (1 + chaos * 0.2);
+            }
+
             const centerX = rect.width / 2;
-            const middle = rect.height / 2;
-            const data = track.waveform;
-            const activeCount = Object.values(fxRef.current).filter((m) => m && m.enabled).length;
-            ctx.fillStyle = activeCount > 0 ? "#e8c27a" : "#c9c9c5";
-            ctx.globalAlpha = scrubbingRef.current ? 0.95 : 0.72;
+            const centerY = rect.height / 2;
+            let baseRadius = Math.min(rect.width, rect.height) * 0.22;
+            if (fx.longReverb?.enabled) {
+              baseRadius *= 1 + fx.longReverb.wet * 0.35;
+            }
+            const spread = baseRadius * (1 + useBass * 1.15 + chaos * 0.08);
 
-            const leftTime = playPosition - centerX / PIXELS_PER_SECOND;
-            const rightTime = playPosition + centerX / PIXELS_PER_SECOND;
-            const firstStem = Math.max(0, Math.floor(leftTime / STEM_STEP_SECONDS) - 1);
-            const lastStem = Math.min(data.length - 1, Math.ceil(rightTime / STEM_STEP_SECONDS) + 1);
-            for (let stem = firstStem; stem <= lastStem; stem += 1) {
-              const stemTime = stem * STEM_STEP_SECONDS;
-              const x = centerX + (stemTime - playPosition) * PIXELS_PER_SECOND;
-              const stemHeight = Math.max(16, data[stem] * rect.height * 0.96);
-              const y = middle - stemHeight / 2;
+            const collageLayers = collageOn ? Math.max(1, collageDelays.length) : 1;
+            const glitchMode = fx.glitchDegrade?.triggerMode || "continuous";
+            const glitchInten = fx.glitchDegrade?.enabled ? (fx.glitchDegrade.intensity || 0) : 0;
+            // random-burst gate: sparse windows
+            const burstGate = glitchMode === "random-burst"
+              && (Math.sin(t * 1.7 + Math.floor(t * 0.35) * 2.1) > 0.78);
+            const transientHit = useMid * 0.55 + useHigh * 0.45;
+
+            for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+              const p = particles[i];
+              let mid = live ? freqData[p.midBin] / 255 : useMid;
+              let high = live ? freqData[p.highBin] / 255 : useHigh;
+              mid = lerp(mid, useMid, 0.35);
+              high = lerp(high, useHigh, 0.35);
+              const bassLocal = live
+                ? freqData[Math.min(bassEnd - 1, Math.floor(p.phase * bassEnd))] / 255
+                : useBass;
+
+              let draw = true;
+
+              // tone isolation: lightly thin particles that don't match kept band
+              // (must not look like almost everything is gone — audio still full)
+              if (fx.bandIsolation?.enabled) {
+                const keep = fx.bandIsolation.keep;
+                const sum = bassLocal + mid + high + 0.001;
+                const soft = fx.bandIsolation.transientSoft || 0;
+                if (keep === "midsOnly") {
+                  const midShare = mid / sum;
+                  // drop only clearly non-mid particles
+                  if (midShare < 0.22 + soft * 0.08 && (bassLocal > mid * 1.4 || high > mid * 1.4)) {
+                    draw = false;
+                  }
+                } else if (keep === "highsOnly") {
+                  const highShare = high / sum;
+                  if (highShare < 0.22 + soft * 0.08 && (bassLocal > high * 1.3 || mid > high * 1.5)) {
+                    draw = false;
+                  }
+                } else {
+                  // midsHighs: only drop the most bass-heavy dots (~thin, not empty)
+                  const lowShare = bassLocal / sum;
+                  if (lowShare > 0.55 + soft * 0.1 && mid < bassLocal * 0.55 && high < bassLocal * 0.55) {
+                    draw = false;
+                  }
+                }
+              }
+
+              let angle = p.angle + rotation;
+              let radius = spread * p.radiusJitter * (1 + mid * 0.08);
+
+              // wowFlutter: subtle vinyl wobble (matched closer to audio)
+              if (fx.wowFlutter?.enabled) {
+                const depth = (fx.wowFlutter.depth || 0) * (1 + chaos * 0.35);
+                const flutter = (fx.wowFlutter.flutterDepth || 0) * (1 + chaos * 0.35);
+                const rate = fx.wowFlutter.rateHz || 0.8;
+                const fRate = fx.wowFlutter.flutterRateHz || 8;
+                radius *= 1 + Math.sin(t * rate * Math.PI * 2 + p.angle) * depth * 1.8;
+                angle += Math.sin(t * fRate * Math.PI * 2 + p.phase * 6) * flutter * 2.5;
+              }
+
+              if (fx.pitchTimeDecouple?.enabled) {
+                const semi = (fx.pitchTimeDecouple.pitchSemitones || 0) / 12;
+                p._sx = 1 + semi * 0.35;
+                p._sy = 1 - semi * 0.28;
+              } else {
+                p._sx = 1;
+                p._sy = 1;
+              }
+
+              if (fx.loopFragment?.enabled) {
+                const dur = Math.max(0.05, fx.loopFragment.durationSec || 0.35);
+                const pulse = 0.5 + 0.5 * Math.sin((t / dur) * Math.PI * 2);
+                const mode = fx.loopFragment.mode || "fixed";
+                if (mode === "sliding" || mode === "fixed") {
+                  radius *= 0.88 + pulse * 0.28;
+                } else {
+                  const steps = Math.max(3, Math.round(8 / Math.max(0.1, dur)));
+                  angle = (Math.round((angle / (Math.PI * 2)) * steps) / steps) * Math.PI * 2
+                    + rotation * 0.15;
+                  if (live && fx.loopFragment.glitchClicks) {
+                    radius += (Math.random() - 0.5) * 10 * pulse;
+                  }
+                }
+              }
+
+              // glitchDegrade by triggerMode (gold tint only later)
+              if (live && fx.glitchDegrade?.enabled) {
+                const inten = glitchInten;
+                if (glitchMode === "continuous") {
+                  angle += (Math.random() - 0.5) * inten * 0.35;
+                  radius += (Math.random() - 0.5) * inten * 10;
+                  if (Math.random() < inten * 0.08) draw = false;
+                } else if (glitchMode === "random-burst") {
+                  if (burstGate) {
+                    angle += (Math.random() - 0.5) * inten * 1.4;
+                    radius += (Math.random() - 0.5) * inten * 36;
+                    if (Math.random() < inten * 0.35) draw = false;
+                  }
+                } else if (glitchMode === "threshold") {
+                  const gate = transientHit > (0.28 - inten * 0.18);
+                  if (gate) {
+                    angle += (Math.random() - 0.5) * inten * 0.9;
+                    radius += (Math.random() - 0.5) * inten * 22;
+                    if (Math.random() < inten * 0.2) draw = false;
+                  }
+                }
+              }
+
+              // layered collage: offset by delay (trail reads lag)
+              const layerIndex = i % collageLayers;
+              if (collageLayers > 1) {
+                const delay = collageDelays[layerIndex] || 0;
+                const delayNorm = clamp(delay / 2.5, 0, 1);
+                radius *= 1 + delayNorm * 0.42;
+                angle += delayNorm * 0.85 + layerIndex * 0.12;
+              }
+
+              if (live && fx.stochasticBehavior?.enabled) {
+                const prob = fx.stochasticBehavior.probability || 0;
+                const bpm = fx.stochasticBehavior.bpm || 96;
+                const beat = Math.sin(t * (bpm / 60) * Math.PI * 2);
+                if (beat > 0.92 && Math.random() < prob * 0.15) {
+                  radius *= 1.25 + chaos * 0.2;
+                }
+              }
+
+              let size = 2.8 + mid * 7.2 + high * 4.5;
+
+              // modulatedLowpass: angular mass gradient (big → small past cutoff)
+              if (fx.modulatedLowpass?.enabled) {
+                const ang = ((angle + lpfPhase * 0.35) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+                const pos = ang / (Math.PI * 2); // 0..1 around ring
+                const cut = clamp(lpfCutNorm, 0.05, 1);
+                // passband side large; past cut shrinks
+                const edge = 0.08;
+                let mass = 1;
+                if (pos > cut + edge) mass = 0.12;
+                else if (pos > cut - edge) {
+                  mass = lerp(1, 0.12, (pos - (cut - edge)) / (edge * 2));
+                }
+                size *= mass;
+                if (mass < 0.18 && p.phase > 0.55) draw = false;
+              }
+
+              if (fx.longReverb?.enabled) {
+                size *= 1 + fx.longReverb.wet * 0.9;
+              }
+              if (live && fx.glitchDegrade?.enabled && glitchMode === "continuous") {
+                size *= 0.85 + Math.random() * glitchInten * 0.5;
+              } else if (live && fx.glitchDegrade?.enabled && glitchMode === "random-burst" && burstGate) {
+                size *= 0.5 + Math.random() * glitchInten * 1.6;
+              }
+
+              if (!draw) continue;
+
+              const fill = anyFx ? "rgba(232, 194, 122, 1)" : "rgba(255, 255, 255, 1)";
+              ctx.fillStyle = fill;
+
+              // Discrete trail: 2–3 smaller solid circles behind motion (no blend)
+              if (useDiscreteTrail && trailCount > 0) {
+                for (let k = trailCount; k >= 1; k -= 1) {
+                  const trailAngle = angle - trailStep * k * (fx.reverse?.enabled ? -1 : 1);
+                  const trailScale = 1 - k * 0.22;
+                  const tr = radius * (0.92 - k * 0.04);
+                  const tx = centerX + Math.cos(trailAngle) * tr * p._sx;
+                  const ty = centerY + Math.sin(trailAngle) * tr * p._sy;
+                  ctx.beginPath();
+                  ctx.arc(tx, ty, Math.max(1.2, size * trailScale), 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              }
+
+              const x = centerX + Math.cos(angle) * radius * p._sx;
+              const y = centerY + Math.sin(angle) * radius * p._sy;
               ctx.beginPath();
-              ctx.roundRect(x, y, STEM_WIDTH, stemHeight, STEM_WIDTH / 2);
+              ctx.arc(x, y, size, 0, Math.PI * 2);
               ctx.fill();
             }
-            ctx.globalAlpha = 1;
+
             rafRef.current = requestAnimationFrame(render);
           };
           rafRef.current = requestAnimationFrame(render);
@@ -3018,7 +3219,6 @@
         return (
           <div className="shell">
           <main className="player" onClick={handlePlayerClick}>
-              <div className="playhead" aria-hidden="true" />
               <div className="player-top">
                 <button
                   className="track-switch"
@@ -3041,21 +3241,14 @@
                 </button>
               </div>
 
-            <section
-              ref={deckRef}
-              className={`deck ${scrubbing ? "scrubbing" : ""}`}
-              onPointerDown={beginScrub}
-              onPointerMove={moveScrub}
-              onPointerUp={endScrub}
-              onPointerCancel={endScrub}
-              aria-label="Drag horizontally to scrub the audio"
-            >
+            <section className="deck" aria-label="Audio visualization">
               <canvas ref={canvasRef} />
-            </section>
-
-            <footer className="controls">
+              <div
+                className="mini-player"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <div className="transport">
-              <button
+                  <button
                     type="button"
                     className="restart-button"
                     onClick={jumpToStart}
@@ -3063,19 +3256,16 @@
                     title="Back to start"
                   >
                     <span className="restart-icon">⏮</span>
-              </button>
-              <button
-                className="play-button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  togglePlay();
-                }}
-                aria-label={playing ? "Pause" : "Play"}
-              >
-                {playing
-                  ? <span className="pause-icon">Ⅱ</span>
-                  : <span className="play-icon">▶</span>}
-              </button>
+                  </button>
+                  <button
+                    className="play-button"
+                    onClick={() => togglePlay()}
+                    aria-label={playing ? "Pause" : "Play"}
+                  >
+                    {playing
+                      ? <span className="pause-icon">Ⅱ</span>
+                      : <span className="play-icon">▶</span>}
+                  </button>
                 </div>
                 <div className="time">
                   <TimeField
@@ -3091,9 +3281,23 @@
                   />
                   <span className="time-total">{formatTime(duration)}</span>
                 </div>
-              <div className="right-controls">
-                <label className="volume-control" onClick={(event) => event.stopPropagation()}>
-                  <span>Volume</span>
+                <label className="seek-control">
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(0.01, duration)}
+                    step="0.01"
+                    value={clamp(position, 0, duration)}
+                    onChange={async (event) => {
+                      const next = Number(event.target.value);
+                      await track.context.resume();
+                      seek(next);
+                    }}
+                    aria-label="Seek"
+                  />
+                </label>
+                <label className="volume-control">
+                  <span>Vol</span>
                   <input
                     type="range"
                     min="0"
@@ -3105,7 +3309,7 @@
                   />
                 </label>
               </div>
-            </footer>
+            </section>
           </main>
 
             <EffectsPanel
