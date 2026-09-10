@@ -182,9 +182,6 @@
         background: rgba(241, 239, 231, .64);
         box-shadow: 0 0 18px rgba(255, 255, 255, .1);
       }
-      .shell.playing .playhead {
-        animation: playhead-live .9s ease-in-out infinite;
-      }
 
       .time {
         position: absolute;
@@ -823,16 +820,6 @@
         0% { background-position: 100% 0; }
         100% { background-position: -100% 0; }
       }
-      @keyframes playhead-live {
-        0%, 100% {
-          background: rgba(241, 239, 231, .55);
-          box-shadow: 0 0 14px rgba(255, 255, 255, .06);
-        }
-        50% {
-          background: rgba(241, 239, 231, .95);
-          box-shadow: 0 0 22px rgba(232, 194, 122, .22);
-        }
-      }
 
       @media (prefers-reduced-motion: reduce) {
         .drop-content h1 {
@@ -841,9 +828,6 @@
           background: none;
           -webkit-background-clip: unset;
           background-clip: unset;
-        }
-        .shell.playing .playhead {
-          animation: none;
         }
         .play-button,
         .play-icon,
@@ -3374,14 +3358,6 @@
               );
             }
 
-            const formatCutoffHz = (hz) => {
-              if (hz >= 1000) {
-                const k = hz / 1000;
-                return `${k >= 10 ? k.toFixed(1) : k.toFixed(2).replace(/0$/, "")}kHz`;
-              }
-              return `${Math.round(hz)}Hz`;
-            };
-
             // Glitch — turn affected stems into dots so bursts are visible ahead.
             const glitch = fxNow.glitchDegrade;
             const glitchOn = !!glitch?.enabled;
@@ -3418,8 +3394,8 @@
               ? Math.max(1.5, (verb.decaySec || 18) * (1 + chaosNow * 0.6))
               : 0;
             const verbShake =
-              verbOn && playingRef.current
-                ? 1.2 + Math.max(0.18, verbWet) * 7
+              verbOn && playingRef.current && verbWet > 0.001
+                ? verbWet * 8
                 : 0;
 
             const fillColor = hasFx ? "#e8c27a" : "#c9c9c5";
@@ -3501,28 +3477,6 @@
               ctx.beginPath();
               ctx.roundRect(x, y, stemW, stemHeight, stemW / 2);
               ctx.fill();
-            }
-
-            // Cutoff Hz readout — matches worklet effective frequency.
-            if (lpfOn && effectiveCutoffHz > 0) {
-              const label = formatCutoffHz(effectiveCutoffHz);
-              ctx.save();
-              ctx.globalAlpha = 0.72;
-              ctx.fillStyle = "rgba(241, 239, 231, 0.55)";
-              ctx.font = '400 10px "Roboto Mono", monospace';
-              ctx.textAlign = "right";
-              ctx.textBaseline = "top";
-              ctx.fillText(`cut ${label}`, rect.width - 14, 10);
-              // Small guide: how much of stem height is kept vs cut.
-              const guideX = rect.width - 14;
-              const guideTop = 28;
-              const guideH = 36;
-              const keptH = guideH * keepRatio;
-              ctx.strokeStyle = "rgba(241, 239, 231, 0.28)";
-              ctx.strokeRect(guideX - 8, guideTop, 8, guideH);
-              ctx.fillStyle = "rgba(232, 194, 122, 0.55)";
-              ctx.fillRect(guideX - 8, guideTop + (guideH - keptH), 8, keptH);
-              ctx.restore();
             }
 
             ctx.globalAlpha = 1;
