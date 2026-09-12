@@ -3137,26 +3137,30 @@
               }
             }
 
-            // Modulated lowpass — fill height = kept band up to cutoff Hz;
-            // outline = full stem (what would be there before the cut).
+            // Modulated lowpass — outline/fill only when cutoff is actually muffling
+            // (open default at slider max + depth 0 should look dry).
             const lpf = fxNow.modulatedLowpass;
             const lpfOn = !!lpf?.enabled;
             let effectiveCutoffHz = 0;
             let keepRatio = 1;
+            let lpfNarrow = false;
             if (lpfOn) {
               const base = clamp(lpf.cutoffHz || 8000, 80, 16000);
               const period = Math.max(8, lpf.lfoPeriodSec || 36);
               const depth = scaleWithChaos(lpf.lfoDepth || 0, chaosNow, "intensity");
+              const res = clamp(lpf.resonance || 0, 0, 1);
               // Match worklet: cutoff = base * 2^(lfo * depth * 2.2). Freeze LFO while paused.
               const lfoClock = playingRef.current ? nowSec : playPosition;
               const lfo = Math.sin(lfoClock * (Math.PI * 2) / period);
               effectiveCutoffHz = clamp(base * Math.pow(2, lfo * depth * 2.2), 60, 18000);
-              // Log map 80Hz→20kHz onto how much of each stem stays solid.
+              // Log map 80Hz→slider max (8k) so the open default fills the stem.
+              const lpfOpenHz = 8000;
               keepRatio = clamp(
-                Math.log10(effectiveCutoffHz / 80) / Math.log10(20000 / 80),
+                Math.log10(Math.max(80, effectiveCutoffHz) / 80) / Math.log10(lpfOpenHz / 80),
                 0.06,
                 1
               );
+              lpfNarrow = keepRatio < 0.97 || depth > 0.02 || res > 0.02;
             }
 
             // Glitch — dots mark damage. Continuous = always on (matches DSP);
@@ -3268,7 +3272,7 @@
               let stemY = middle - stemHeight / 2;
 
               // Outline = full (pre-filter). Fill = kept Hz band — only when cutting.
-              if (isoNarrow || lpfOn) {
+              if (isoNarrow || lpfNarrow) {
                 const oy = middle - fullHeight / 2;
                 ctx.globalAlpha = scrubbingRef.current ? 0.6 : 0.42;
                 ctx.strokeStyle = outlineColor;
@@ -3282,13 +3286,13 @@
               if (isoNarrow) {
                 let lo = isoHpFrac;
                 let hi = isoLpFrac;
-                // If lowpass is also on, intersect with its kept top.
-                if (lpfOn) hi = Math.min(hi, keepRatio);
+                // If lowpass is also cutting, intersect with its kept top.
+                if (lpfNarrow) hi = Math.min(hi, keepRatio);
                 if (hi <= lo + 0.02) hi = lo + 0.02;
                 stemHeight = Math.max(4, fullHeight * (hi - lo));
                 // Bottom of stem = bass; fill sits between hp and lp fractions.
                 stemY = middle + fullHeight / 2 - hi * fullHeight;
-              } else if (lpfOn) {
+              } else if (lpfNarrow) {
                 stemHeight = Math.max(4, fullHeight * keepRatio);
                 stemY = middle - stemHeight / 2;
               }
