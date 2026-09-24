@@ -1036,7 +1036,7 @@
           const rms = Math.sqrt(sum / Math.max(1, count));
           amplitudes[stem] = peak * 0.65 + rms * 0.35;
           if (stem % 240 === 0) {
-            onProgress(15 + Math.round((stem / stemCount) * 70));
+            onProgress(52 + Math.round((stem / stemCount) * 36));
             await new Promise((resolve) => setTimeout(resolve, 0));
           }
         }
@@ -1844,6 +1844,23 @@
         // Some browsers detach the buffer; always decode a copy.
         const copy = arrayBuffer.slice(0);
         return context.decodeAudioData(copy);
+      }
+
+      function readFileWithProgress(file, onProgress) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onprogress = (event) => {
+            const total = event.lengthComputable ? event.total : file.size;
+            if (!total) return;
+            const ratio = Math.min(1, event.loaded / total);
+            onProgress(Math.max(1, Math.min(46, Math.round(ratio * 46))));
+          };
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => {
+            reject(reader.error || new Error("Could not read that file."));
+          };
+          reader.readAsArrayBuffer(file);
+        });
       }
 
       function DropScreen({ onFile }) {
@@ -3430,10 +3447,12 @@
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (!AudioContextClass) throw new Error("Web Audio API is not supported in this browser.");
           const context = new AudioContextClass();
-          await context.resume();
           try {
-            const arrayBuffer = await file.arrayBuffer();
-            onProgress(5);
+            // The file picker's change event is often not a user gesture, so
+            // context.resume() can stay pending and freeze the meter at 1%.
+            // Decode works while suspended; play() resumes on a real click.
+            const arrayBuffer = await readFileWithProgress(file, onProgress);
+            onProgress(48);
             let buffer;
             try {
               buffer = await decodeAudioBuffer(context, arrayBuffer);
@@ -3444,7 +3463,7 @@
                   "). Try WAV or MP3."
               );
             }
-            onProgress(15);
+            onProgress(52);
             const waveform = await makeWaveformStems(buffer, onProgress);
             onProgress(88);
             const masterGain = context.createGain();
